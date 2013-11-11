@@ -1,4 +1,6 @@
 /*
+   tinyTLS project
+
    Copyright 2013 Nesterov A.
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,9 +22,9 @@
  * http://en.wikipedia.org/wiki/MD5#Pseudocode
  */
 
-#include <stdio.h>
-#include <stdint.h>
 #include <string.h>
+
+#include "hash.h"
 
 //#define TEST_MODULE
 
@@ -45,7 +47,7 @@ uint32_t arm_ror_imm(uint32_t v, uint32_t sh) {
 #define rol(v, s) arm_ror_imm(v, 32-s)
 
 #else
-inline uint32_t rol(uint32_t v, uint32_t s) { return (v >> (32-s)) | (v << s); }
+static inline uint32_t rol(uint32_t v, uint32_t s) { return (v >> (32-s)) | (v << s); }
 
 #endif
 
@@ -149,7 +151,7 @@ static void md5InternalUpdate(uint32_t md5state[4], uint32_t *input, uint32_t le
 		C += md5state[2];
 		D += md5state[3];
 		
-		input += 64;
+		input += 16;
 		length -= 64;
 	}
 	
@@ -159,13 +161,6 @@ static void md5InternalUpdate(uint32_t md5state[4], uint32_t *input, uint32_t le
 	md5state[3] = D;
 }	
 
-struct MD5_State
-{
-	uint32_t md5state[4];
-	uint8_t buf[128];
-	uint32_t buf_len;
-	uint32_t full_len;
-};
 
 void md5Init(MD5_State * state)
 {
@@ -179,7 +174,7 @@ void md5Init(MD5_State * state)
 	state->full_len = 0;
 }
 
-static void md5Update(MD5_State * state, uint8_t * input, uint32_t length)
+void md5Update(MD5_State * state, const uint8_t * input, uint32_t length)
 {
 	int l;
 	state->full_len += length;
@@ -215,7 +210,7 @@ static void md5Update(MD5_State * state, uint8_t * input, uint32_t length)
 	state->buf_len = length;
 }
 
-static void md5Finish(MD5_State * state, uint32_t result[4])
+void md5Finish(MD5_State * state, uint32_t result[4])
 {
 	int l = 64 - state->buf_len - 1;
 	
@@ -251,28 +246,28 @@ int main()
 	uint32_t result[4]; //bytes will be swaped in each value
 
 	md5Init(&state);
-	md5Update(&state, (uint8_t*)"", 0);
+	md5Update(&state, (const uint8_t*)"", 0);
 	md5Finish(&state, result);
 	
 	printf("md5(\"\") = %08x %08x %08x %08x\n",
 		result[0], result[1], result[2], result[3]);
 
 	md5Init(&state);
-	md5Update(&state, (uint8_t*)"abc", 3);
+	md5Update(&state, (const uint8_t*)"abc", 3);
 	md5Finish(&state, result);
 	
 	printf("md5(\"abc\") = %08x %08x %08x %08x\n",
 		result[0], result[1], result[2], result[3]);
 
 	md5Init(&state);
-	md5Update(&state, (uint8_t*)"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", 56);
+	md5Update(&state, (const uint8_t*)"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", 56);
 	md5Finish(&state, result);
 	
 	printf("md5(\"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq\") = %08x %08x %08x %08x\n",
 		result[0], result[1], result[2], result[3]);
 
 	md5Init(&state);
-	md5Update(&state, (uint8_t*)"The quick brown fox jumps over the lazy dog", 43);
+	md5Update(&state, (const uint8_t*)"The quick brown fox jumps over the lazy dog", 43);
 	md5Finish(&state, result);
 	
 	printf("md5(\"The quick brown fox jumps over the lazy dog\") = %08x %08x %08x %08x\n",

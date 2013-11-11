@@ -1,4 +1,6 @@
 /*
+   tinyTLS project
+
    Copyright 2013 Nesterov A.
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,10 +49,10 @@ uint32_t arm_ror_imm(uint32_t v, uint32_t sh) {
 #define bswap32(v) __builtin_bswap32(val)
 
 #else
-inline uint32_t ror(uint32_t v, uint32_t s) { return (v >> s) | (v << (32-s)); }
-inline uint32_t rol(uint32_t v, uint32_t s) { return (v >> (32-s)) | (v << s); }
+static inline uint32_t ror(uint32_t v, uint32_t s) { return (v >> s) | (v << (32-s)); }
+static inline uint32_t rol(uint32_t v, uint32_t s) { return (v >> (32-s)) | (v << s); }
 
-inline uint32_t bswap32(uint32_t v) { return rol(v & 0xFF00FF00, 8) | ror(v & 0x00FF00FF, 8); }
+static inline uint32_t bswap32(uint32_t v) { return rol(v & 0xFF00FF00, 8) | ror(v & 0x00FF00FF, 8); }
 
 #endif
 
@@ -73,7 +75,7 @@ inline uint32_t bswap32(uint32_t v) { return rol(v & 0xFF00FF00, 8) | ror(v & 0x
 
 // ### need no-byteswap alternative for HMAC
 
-static void sha1InternalUpdate(uint32_t sha1state[5], uint32_t *input, uint32_t length)
+static void sha1InternalUpdate(uint32_t sha1state[5], const uint32_t *input, uint32_t length)
 {
 	register uint32_t A = sha1state[0];
 	register uint32_t B = sha1state[1];
@@ -181,7 +183,7 @@ static void sha1InternalUpdate(uint32_t sha1state[5], uint32_t *input, uint32_t 
 		D += sha1state[3];
 		E += sha1state[4];
 		
-		input += 64;
+		input += 16;
 		length -= 64;
 	}
 	
