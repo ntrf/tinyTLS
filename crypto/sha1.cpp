@@ -182,16 +182,16 @@ static void sha1InternalUpdate(uint32_t sha1state[5], const uint32_t *input, uin
 		C += sha1state[2];
 		D += sha1state[3];
 		E += sha1state[4];
-		
+	
+		sha1state[0] = A;
+		sha1state[1] = B;
+		sha1state[2] = C;
+		sha1state[3] = D;
+		sha1state[4] = E;
+	
 		input += 16;
 		length -= 64;
 	}
-	
-	sha1state[0] = A;
-	sha1state[1] = B;
-	sha1state[2] = C;
-	sha1state[3] = D;
-	sha1state[4] = E;
 }	
 
 struct SHA1_State

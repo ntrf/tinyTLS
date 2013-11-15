@@ -151,14 +151,14 @@ static void md5InternalUpdate(uint32_t md5state[4], uint32_t *input, uint32_t le
 		C += md5state[2];
 		D += md5state[3];
 		
+		md5state[0] = A;
+		md5state[1] = B;
+		md5state[2] = C;
+		md5state[3] = D;
+		
 		input += 16;
 		length -= 64;
 	}
-	
-	md5state[0] = A;
-	md5state[1] = B;
-	md5state[2] = C;
-	md5state[3] = D;
 }	
 
 
