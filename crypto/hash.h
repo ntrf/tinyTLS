@@ -34,6 +34,20 @@ void md5Init(MD5_State * state);
 void md5Update(MD5_State * state, const uint8_t * input, uint32_t length);
 void md5Finish(MD5_State * state, uint32_t result[4]);
 
+// SHA1 implementation
+
+struct SHA1_State
+{
+	uint32_t sha1state[5];
+	uint8_t buf[128];
+	uint32_t buf_len;
+	uint32_t full_len;
+};
+
+void sha1Init(SHA1_State * state);
+void sha1Update(SHA1_State * state, const uint8_t * input, uint32_t length);
+void sha1Finish(SHA1_State * state, uint32_t result[5]);
+
 // HMAC with MD5
 void HmacMd5(uint32_t result[4],const uint32_t key[16], const uint8_t * data, uint32_t length);
 
@@ -49,5 +63,18 @@ struct HMACMD5_State
 void HmacMd5_Init(HMACMD5_State * state, const uint32_t key[16]);
 void HmacMd5_Update(HMACMD5_State * state, const uint8_t * data, uint32_t length);
 void HmacMd5_Finish(HMACMD5_State * state, uint32_t result[4]);
+void HmacMd5_Reset(HMACMD5_State * state, const HMACMD5_State * from);
+
+struct HMACSHA1_State
+{
+	SHA1_State sha1State;
+	uint32_t key[16];
+};
+
+void HmacSha1(uint32_t result[5],const uint32_t key[16], const uint8_t * data, uint32_t length);
+void HmacSha1_Init(HMACSHA1_State * state, const uint32_t key[16]);
+void HmacSha1_Update(HMACSHA1_State * state, const uint8_t * data, uint32_t length);
+void HmacSha1_Finish(HMACSHA1_State * state, uint32_t result[5]);
+void HmacSha1_Reset(HMACSHA1_State * state, const HMACSHA1_State * from);
 
 #endif

@@ -22,39 +22,13 @@
  * http://en.wikipedia.org/wiki/SHA1#SHA-1_pseudocode
  */
 
-#include <stdio.h>
-#include <stdint.h>
 #include <string.h>
+
+#include "hash.h"
 
 //#define TEST_MODULE
 
-#ifdef ARM_ASSEMBLY
-
-//### untested
-
-static inline __attribute__((always_inline))
-uint32_t arm_ror_imm(uint32_t v, uint32_t sh) {
-  register uint32_t d;
-#if 1
-  __asm__("ROR %0, %1, %2" : "=r" (d) : "r" (v), "i" (sh));
-#else
-  __asm__("MOV %0, %1, ROR %2\n" : "=r"(d) : "r"(v), "M"(sh));
-#endif
-  return d;
-}
-
-#define ror(v, s) arm_ror_imm(v, s)
-#define rol(v, s) arm_ror_imm(v, 32-s)
-
-#define bswap32(v) __builtin_bswap32(val)
-
-#else
-static inline uint32_t ror(uint32_t v, uint32_t s) { return (v >> s) | (v << (32-s)); }
-static inline uint32_t rol(uint32_t v, uint32_t s) { return (v >> (32-s)) | (v << s); }
-
-static inline uint32_t bswap32(uint32_t v) { return rol(v & 0xFF00FF00, 8) | ror(v & 0x00FF00FF, 8); }
-
-#endif
+#include "intutils.h"
 
 #define INPUT_RD(i) bswap32(input[i])
 #define NEXT_RD(i) rol((w[i-3] ^ w[i-8] ^ w[i-14] ^ w[i-16]),1)
@@ -188,19 +162,11 @@ static void sha1InternalUpdate(uint32_t sha1state[5], const uint32_t *input, uin
 		sha1state[2] = C;
 		sha1state[3] = D;
 		sha1state[4] = E;
-	
+
 		input += 16;
 		length -= 64;
 	}
 }	
-
-struct SHA1_State
-{
-	uint32_t sha1state[5];
-	uint8_t buf[128];
-	uint32_t buf_len;
-	uint32_t full_len;
-};
 
 void sha1Init(SHA1_State * state)
 {
@@ -215,7 +181,7 @@ void sha1Init(SHA1_State * state)
 	state->full_len = 0;
 }
 
-static void sha1Update(SHA1_State * state, uint8_t * input, uint32_t length)
+void sha1Update(SHA1_State * state, const uint8_t * input, uint32_t length)
 {
 	int l;
 	state->full_len += length;
@@ -251,7 +217,7 @@ static void sha1Update(SHA1_State * state, uint8_t * input, uint32_t length)
 	state->buf_len = length;
 }
 
-static void sha1Finish(SHA1_State * state, uint32_t result[5])
+void sha1Finish(SHA1_State * state, uint32_t result[5])
 {
 	int l = 64 - state->buf_len - 1;
 	

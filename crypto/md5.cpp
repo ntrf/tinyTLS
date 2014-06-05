@@ -28,28 +28,7 @@
 
 //#define TEST_MODULE
 
-#ifdef ARM_ASSEMBLY
-
-//### untested
-
-static inline __attribute__((always_inline))
-uint32_t arm_ror_imm(uint32_t v, uint32_t sh) {
-  register uint32_t d;
-#if 1
-  __asm__("ROR %0, %1, %2" : "=r" (d) : "r" (v), "i" (sh));
-#else
-  __asm__("MOV %0, %1, ROR %2\n" : "=r"(d) : "r"(v), "M"(sh));
-#endif
-  return d;
-}
-
-#define ror(v, s) arm_ror_imm(v, s)
-#define rol(v, s) arm_ror_imm(v, 32-s)
-
-#else
-static inline uint32_t rol(uint32_t v, uint32_t s) { return (v >> (32-s)) | (v << s); }
-
-#endif
+#include "intutils.h"
 
 #define RD1(i) (input[(i)])
 #define RD2(i) (input[(5*(i) + 1) & 15])

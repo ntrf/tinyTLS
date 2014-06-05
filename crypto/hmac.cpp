@@ -87,11 +87,81 @@ void HmacMd5_Finish(HMACMD5_State * state, uint32_t result[4])
 }
 
 
+void HmacSha1(uint32_t result[5],const uint32_t key[16], const uint8_t * data, uint32_t length)
+{
+	uint32_t xkey[21]; // for step2: 0..15 = key  16..20 = step1 hash
+
+	for(uint32_t i = 0; i < 16; ++i)
+		xkey[i] = key[i] ^ 0x36363636;
+
+	SHA1_State run1;
+	sha1Init(&run1);
+	
+	sha1Update(&run1, (const uint8_t*)xkey, 16 * sizeof(uint32_t));
+	sha1Update(&run1, data, length);
+
+	sha1Finish(&run1, xkey + 16);
+
+	for(uint32_t i = 0; i < 16; ++i)
+		xkey[i] = key[i] ^ 0x5c5c5c5c;
+
+	sha1Init(&run1);
+	sha1Update(&run1, (const uint8_t*)xkey, 21 * sizeof(uint32_t));
+	sha1Finish(&run1, result);
+
+	memset(xkey, 0, sizeof(xkey));
+}
+
+void HmacSha1_Init(HMACSHA1_State * state, const uint32_t key[16])
+{
+	uint32_t xkey[16];
+
+	for(uint32_t i = 0; i < 16; ++i)
+		xkey[i] = key[i] ^ 0x36363636;
+
+	sha1Init(&state->sha1State);
+	sha1Update(&state->sha1State, (const uint8_t*)xkey, 16 * sizeof(uint32_t));
+
+	for(uint32_t i = 0; i < 16; ++i)
+		state->key[i] = key[i] ^ 0x5c5c5c5c;
+}
+
+void HmacSha1_Update(HMACSHA1_State * state, const uint8_t * data, uint32_t length)
+{
+	sha1Update(&state->sha1State, data, length);
+}
+
+void HmacSha1_Finish(HMACSHA1_State * state, uint32_t result[5])
+{
+	uint32_t xkey[21];
+
+	memcpy(xkey, state->key, sizeof(uint32_t) * 16);
+	sha1Finish(&state->sha1State, xkey + 16);
+	
+	SHA1_State run2;
+	sha1Init(&run2);
+	sha1Update(&run2, (const uint8_t*)xkey, 21 * sizeof(uint32_t));
+	sha1Finish(&run2, result);
+
+	memset(xkey, 0, sizeof(xkey));
+}
+
+void HmacSha1_Reset(HMACSHA1_State * state, const HMACSHA1_State * from)
+{
+	memcpy(state->key, from->key, sizeof(state->key));
+	state->sha1State.full_len = from->sha1State.full_len;
+	state->sha1State.buf_len = from->sha1State.buf_len;
+	memcpy(state->sha1State.buf, from->sha1State.buf, state->sha1State.buf_len);
+	memcpy(state->sha1State.sha1state, from->sha1State.sha1state, sizeof(state->sha1State.sha1state));
+}
+
 #ifdef TEST_MODULE
 #include <stdio.h>
+extern void PrintHex(unsigned char *buf, unsigned int size, int shift);
+
 int main()
 {
-	uint32_t result[4];
+	uint32_t result[5];
 	uint32_t key[16];
 
 	memset(key, 0, sizeof(key));
@@ -116,6 +186,27 @@ int main()
 
 	printf("hmac_md5(\"key\",\"The quick brown fox jumps over the lazy dog\") = %08x %08x %08x %08x\n",
 		result[0], result[1], result[2], result[3]);
+
+	PrintHex((unsigned char*)result, sizeof(result), 0);
+
+	HmacSha1(result, key, (const uint8_t *)"The quick brown fox jumps over the lazy dog", 43);
+
+	printf("hmac_sha1(\"key\",\"The quick brown fox jumps over the lazy dog\") = %08x %08x %08x %08x %08x\n",
+		result[0], result[1], result[2], result[3], result[4]);
+
+	PrintHex((unsigned char*)result, sizeof(result), 0);
+
+	{
+		HMACSHA1_State state;
+		HmacSha1_Init(&state, key);
+		HmacSha1_Update(&state, (const uint8_t *)"The quick brown fox jumps over the lazy dog", 43);
+		HmacSha1_Finish(&state, result);
+
+		printf("hmac_sha1(\"key\",\"The quick brown fox jumps over the lazy dog\") = %08x %08x %08x %08x %08x\n",
+			result[0], result[1], result[2], result[3], result[4]);
+
+		PrintHex((unsigned char*)result, sizeof(result), 0);
+	}
 
 	return 0;
 }
