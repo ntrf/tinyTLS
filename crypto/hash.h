@@ -48,6 +48,20 @@ void sha1Init(SHA1_State * state);
 void sha1Update(SHA1_State * state, const uint8_t * input, uint32_t length);
 void sha1Finish(SHA1_State * state, uint32_t result[5]);
 
+// SHA256 implementation
+
+struct SHA256_State
+{
+	uint32_t sha256state[8];
+	uint8_t buf[128];
+	uint32_t buf_len;
+	uint32_t full_len;
+};
+
+void sha256Init(SHA256_State * state);
+void sha256Update(SHA256_State * state, const uint8_t * input, uint32_t length);
+void sha256Finish(SHA256_State * state, uint32_t result[8]);
+
 // HMAC with MD5
 void HmacMd5(uint32_t result[4],const uint32_t key[16], const uint8_t * data, uint32_t length);
 
