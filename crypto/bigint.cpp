@@ -154,7 +154,7 @@ void MontgomeryReductionContext::MontMul_CIOS(uint32_t * r, const uint32_t * a, 
 
 	// compute <r> = <t> - <n>
 	C = 0;
-	// multiply and subtract
+	// subtract
 	for (i = 0; i < s; ++i) {
 		C = (uint64_t)t[i] - (uint64_t)n[i] + his64(C);
 		r[i] = lo64(C);
@@ -252,36 +252,42 @@ static void longmod(uint32_t * a, uint32_t m, uint32_t * v, uint32_t n, uint32_t
 			// this might cause overflow in next iteration
 			// Here is how it works:
 			//   we know that: 
-			//     d = DH * 2^(n-1) + X
-			//   where X < 2^(n-1), but in worst case X = 2^(n-1) - 1
+			//     d = DH * 2^(n) + X
+			//   where X < 2^(n), but in worst case X = 2^(n) - 1
 			//  
 			//   when we subtract worst case divisor we actualy will subtract
-			//     u - d * q = u - DH * q * 2^(n-1) + X * q = 
-			//     = u - DH * q * 2^(n-1) - (2^(n-1) - 1) * q = 
+			//     u - d * q = u - DH * q * 2^{n} + X * q = 
+			//     = u - DH * q * 2^{n} - (2^{n} - 1) * q = 
+			//     = UH * 2^{n} + Y - DH * q * 2^{n} - (2^{n} - 1) * q = 
 			//     = [we already computed first digit as r = UH - DH * q] =
-			//     = r * 2^(n-1) - 2^(n-1) * q - 1 * q = 
-			//     = (r - q) * 2^(n-1) + q
+			//     = r * 2^{n} - 2^{n} * q + 1 * q + Y = 
+			//     = (r - q) * 2^{n} + q + Y
 			//   So to keep result positive we need to make sure that
 			//     r >= q
 			//   This prevents 'add back if we subtracted too much' case
 			//   but adds additional step at the end and forces qx to overflow
+			//
+			//   code bellow is effectively the same as:
+			//     while (qx > rx) {
+			//       qx -= 1; rx += d;
+			//     }
+			//   but without cycles
 			if (qx > rx) {
-				qx -= 1;
-			}
-			// prevent overflow in the following calculations
-			if (qx > 0x7FffFFff) {
-				qx = 0x7FffFFff;
+				qx -= (qx - rx) / (d + 1) + 1;
 			}
 		}
 
 		uint64_t C = 0;
+		uint64_t M = 0;
 		// multiply and subtract
 		for (i = 0; i < n; ++i) {
-			C = (uint64_t)a[i + j] - (uint64_t)qx * (uint64_t)v[i] + his64(C);
-			assert((int32_t)(C >> 32) <= 0);
+			M = (uint64_t)qx * (uint64_t)v[i] + hi64(M);
+			C = (uint64_t)a[i + j] - (M & 0xFFffFFff) + his64(C);
+			assert((int32_t)(C >> 32) == 0 || (int32_t)(C >> 32) == 0xffFFffFF);
 			a[i + j] = lo64(C);
 		}
-		C = a[n + j] + his64(C);
+		C = (uint64_t)a[n + j] - hi64(M) + his64(C);
+		assert(hi64(C) == 0);
 		a[n + j] = lo64(C);
 	}
 
