@@ -30,8 +30,10 @@ limitations under the License.
 #include <stdint.h>
 
 #include "../mlib/binary.h"
+#include "../internal.h"
 
-#include "internal.h"
+#include "hash.h"
+#include "pkcs1.h"
 
 /* Encryption */
 
@@ -71,8 +73,6 @@ void EncryptRSA(TinyTLSContext * ctx, Binary & out, unsigned int size, const Bin
 
 /* Signature verification */
 
-#include "hash.h"
-
 #define OID_2B(x) (0x80 | ((X) >> 7)), (x & 127)
 #define OID_3B(x) (0x80 | ((X) >> 14)), (0x80 | ((X) >> 7) & 127), (x & 127)
 
@@ -108,8 +108,6 @@ static const uint8_t rsaSha256DigestInfo[51 - 32] = {
 	ASN_NULL,
 	ASN_OCTETSTRING(32)
 };
-
-#include "pkcs1.h"
 
 int GetRSAAlgorithmType(const uint8_t * oid, uint32_t length)
 {
