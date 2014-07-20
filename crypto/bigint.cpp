@@ -17,11 +17,11 @@ limitations under the License.
 */
 
 /* BIGINT.CPP
-* Montgomery reduction and exponentation
-* This code is used for fast computations of RSA signatures and encryption
-*
-* note: "<x>" means "x is big integer"
-*/
+ * Montgomery reduction and exponentation
+ * This code is used for fast computations of RSA signatures and encryption
+ *
+ * note: "<x>" means "x is big integer"
+ */
 
 #include <string.h>
 #include <stdlib.h>
