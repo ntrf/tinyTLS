@@ -1,13 +1,6 @@
-# Compiled Object files
-*.slo
-*.lo
-*.o
+build
+build.*
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
+prebuilt
 
-# Compiled Static libraries
-*.lai
-*.la
-*.a
+test/certs
