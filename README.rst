@@ -2,7 +2,7 @@
 TinyTLS
 =========
 
-TLS 1.1 implementation designed to be small and easy to integrate
+TLS 1.0 client implementation designed to be small and easy to integrate
 
 
 NOTICE
