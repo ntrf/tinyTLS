@@ -33,10 +33,15 @@ enum
 	PKCS1_RSAES,
 
 	PKCS1_SSA_MD5,
+
 	PKCS1_SSA_SHA1,
 	PKCS1_SSA_SHA256,
 	PKCS1_SSA_SHA384,
 	PKCS1_SSA_SHA512,
+
+	// the first trusted signature type
+	// everything bellow will fail to validate
+	PKCS1_SSA_TRUSTED = PKCS1_SSA_SHA1
 };
 
 struct PKCS1_RSA_PublicKey{

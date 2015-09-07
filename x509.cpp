@@ -630,8 +630,8 @@ int VerifyCertificateChain(TinyTLSContext * ctx, const CertifacteBinary * certs,
 			return 0;
 
 		// check validity
-
-		if (cert_storage[current].signType == SIGTYPE_UNKNOWN) {
+		// make sure we don't have unknown or weak signature algorithms
+		if (cert_storage[current].signType < PKCS1_SSA_TRUSTED) {
 			//fprintf("Unable to verify signature! - UNKNOWN ALGORITHM\n");
 			return -1;
 		} else {
