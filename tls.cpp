@@ -341,7 +341,7 @@ public:
 	int connectionReady() const
 	{
 		if (handshake_completion & CONNECTION_CLOSED)
-			return 0;
+			return handshake_error;
 
 		// check if handshakle complete
 		if ((handshake_completion & (HANDSHAKE_CLIENT_FINISHED | HANDSHAKE_SERVER_FINISHED)) == (HANDSHAKE_CLIENT_FINISHED | HANDSHAKE_SERVER_FINISHED))
