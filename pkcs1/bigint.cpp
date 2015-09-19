@@ -439,13 +439,85 @@ void MontgomeryReductionContext::ExpMod_Fnum(uint32_t * r, const uint32_t * a, u
 /// UNIMPLEMENTED
 void MontgomeryReductionContext::ExpMod(uint32_t * r, const uint32_t * a, const uint32_t * exponent, unsigned explen, bool netByteOrder)
 {
-	assert(0 && "unimplemented");
+	const uint32_t * exp = exponent;
+
+	// we assume exponent has lsb set
+	uint32_t run = 0;
+	uint32_t mask = 1;
+
+	if (netByteOrder) {
+		const uint32_t * rd = &a[size - 1];
+		for (unsigned i = 0; i < size; ++i) {
+			p[i] = bswap32(*rd--);
+		}
+		MontMul_CIOS(w, p, rr); // W = Ar
+		exp += (explen - 1);
+		run = bswap32(*exp);
+	} else {
+		MontMul_CIOS(w, a, rr); // W = Ar
+		run = *exp;
+	}
+
+	assert((run & 1) != 0);
+	memcpy(p, w, sizeof(*p) * size);
+
+	// #### SIDE CHANNEL ATTACK is possible!
+	// #### REWRITE TO TABLE MULTIPLICATION
+	if (netByteOrder) {
+		for (;;) {
+			mask <<= 1;
+			if (mask == 0) {
+				// load more bits from exponent
+				--exp;
+				if (exp < exponent) break;
+				run = bswap32(*exp);
+				mask = 1;
+			}
+
+			// generate next power of two
+			MontMul_CIOS(p, p, p); // P = P^{2}
+
+			if ((run & mask) != 0) {
+				MontMul_CIOS(w, w, p); // W = WP
+			}
+		}
+	} else {
+		for (;;) {
+			// generate new power of two
+			MontMul_CIOS(p, p, p); // P = P^{2}
+
+			mask <<= 1;
+			if (mask == 0) {
+				// load more bits from exponent
+				++exp;
+				if (exp >= exponent + explen) break;
+				run = *exp;
+				mask = 1;
+			}
+
+			if ((run & mask) != 0) {
+				MontMul_CIOS(w, w, p); // W = WP
+			}
+		}
+	}
+
+	if (!netByteOrder) {
+		MontDecode_CIOS(r, w); // R = Wr^{-1}
+	} else {
+		MontDecode_CIOS(p, w); // R = Wr^{-1}
+		const uint32_t * rd = &p[size - 1];
+		for (unsigned i = 0; i < size; ++i) {
+			r[i] = bswap32(*rd--);
+		}
+	}
 }
 
 #ifdef TEST_MODULE
+
 int main(int argc, char ** argv)
 {
 	// REMOVED
+	return 0;
 }
 
 #endif

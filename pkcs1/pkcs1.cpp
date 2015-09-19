@@ -20,11 +20,13 @@ limitations under the License.
  * Cryptographic primitives for RSA cryptosystem (PKCS #1)
  *  - RSAES-PKCS1-v1_5 encryption
  *  - RSASSA-PKCS1-v1_5 signature verification
- * Notice: current implementation only supports exponents no larger
- * than 2^{32} - 1
+ *  - RSASSA-PKCS1-v1_5 signature generation
+ * Notice: current implementation only supports public exponents no 
+ * larger than 2^{32} - 1
  */
 
 //#define TEST_MODULE
+//#define TEST_MODULE2
 
 #include <string.h>
 #include <stdint.h>
@@ -308,6 +310,82 @@ int VerifyRSASignature(MontgomeryReductionContext * ctx, const Binary & signatur
 	return VerifyRSASignatureHash(ctx, signature, size, Modulus, Exponent, sigtype, hash);
 }
 
+// Sign message with RSA-
+int GenerateRSASignatureHash(struct MontgomeryReductionContext * ctx, Binary & signature, unsigned int size, const Binary & Modulus, const Binary & Exponent, int sigtype, const uint32_t * hash)
+{
+	unsigned N = 0;
+
+	if (sigtype == PKCS1_SSA_MD5) {
+		N = size - sizeof(rsaMd5DigestInfo)-16 - 1;
+	} else if (sigtype == PKCS1_SSA_SHA1) {
+		N = size - sizeof(rsaSha1DigestInfo)-20 - 1;
+	} else if (sigtype == PKCS1_SSA_SHA256) {
+		N = size - sizeof(rsaSha256DigestInfo)-32 - 1;
+	} else if (sigtype == PKCS1_SSA_SHA384) {
+		N = size - sizeof(rsaSha384DigestInfo)-48 - 1;
+	} else if (sigtype == PKCS1_SSA_SHA512) {
+		N = size - sizeof(rsaSha512DigestInfo)-64 - 1;
+	} else {
+		return -1;
+	}
+
+	if (N < 3) return -1;
+
+	Binary buf;
+	buf.alloc(size);
+	signature.alloc(size);
+
+	// build mandatory part of signature
+	buf[0] = 0;
+	buf[1] = 1;
+	memset(buf.data + 2, 0xFF, N - 2);
+	buf[N] = 0;
+	
+	++N;
+	if (sigtype == PKCS1_SSA_MD5) {
+		memcpy(buf.data + N, rsaMd5DigestInfo, sizeof(rsaMd5DigestInfo));
+		N += sizeof(rsaMd5DigestInfo);
+		memcpy(buf.data + N, hash, sizeof(uint32_t) * 4);
+	} else if (sigtype == PKCS1_SSA_SHA1) {
+		memcpy(buf.data + N, rsaSha1DigestInfo, sizeof(rsaSha1DigestInfo));
+		N += sizeof(rsaSha1DigestInfo);
+		memcpy(buf.data + N, hash, sizeof(uint32_t) * 5);
+	} else if (sigtype == PKCS1_SSA_SHA256) {
+		memcpy(buf.data + N, rsaSha256DigestInfo, sizeof(rsaSha256DigestInfo));
+		N += sizeof(rsaSha256DigestInfo);
+		memcpy(buf.data + N, hash, sizeof(uint32_t) * 8);
+	} else if (sigtype == PKCS1_SSA_SHA384) {
+		memcpy(buf.data + N, rsaSha384DigestInfo, sizeof(rsaSha384DigestInfo));
+		N += sizeof(rsaSha384DigestInfo);
+		memcpy(buf.data + N, hash, sizeof(uint32_t) * 12);
+	} else if (sigtype == PKCS1_SSA_SHA512) {
+		memcpy(buf.data + N, rsaSha512DigestInfo, sizeof(rsaSha512DigestInfo));
+		N += sizeof(rsaSha512DigestInfo);
+		memcpy(buf.data + N, hash, sizeof(uint32_t) * 16);
+	} else {
+		return -1;
+	}
+
+	// ### workaround this limitation
+	if ((Exponent.length & 3) != 0)
+		return -1;
+
+	ctx->Prepare(Modulus.data, Modulus.length, size / 4, true);
+	ctx->ExpMod((uint32_t *)signature.data, (const uint32_t *)buf.data, (const uint32_t*)Exponent.data, Exponent.length / 4, true);
+	return 1;
+}
+
+int GenerateRSASignature(struct MontgomeryReductionContext * ctx, Binary & signature, unsigned int size, const Binary & Modulus, const Binary & Exponent, int sigtype, const uint8_t * data, unsigned length)
+{
+	uint32_t hash[16];
+	size_t hash_size = ComputeRSASignatureHash(sigtype, data, length, hash);
+	if (hash_size == 0) {
+		return -1;
+	}
+
+	return GenerateRSASignatureHash(ctx, signature, size, Modulus, Exponent, sigtype, hash);
+}
+
 #if TEST_MODULE
 #include <stdio.h>
 
@@ -372,6 +450,60 @@ int main()
 	printf("%s\n", match ? "Match" : "!!!! Mismatch  !!!!");
 
 	return match ? 0 : -1;
+}
+
+#endif
+
+#ifdef TEST_MODULE2
+#include <stdio.h>
+
+const uint8_t Modulus[128] = {
+	0xa5, 0x6e, 0x4a, 0x0e, 0x70, 0x10, 0x17, 0x58, 0x9a, 0x51, 0x87, 0xdc, 0x7e, 0xa8, 0x41, 0xd1,
+	0x56, 0xf2, 0xec, 0x0e, 0x36, 0xad, 0x52, 0xa4, 0x4d, 0xfe, 0xb1, 0xe6, 0x1f, 0x7a, 0xd9, 0x91,
+	0xd8, 0xc5, 0x10, 0x56, 0xff, 0xed, 0xb1, 0x62, 0xb4, 0xc0, 0xf2, 0x83, 0xa1, 0x2a, 0x88, 0xa3,
+	0x94, 0xdf, 0xf5, 0x26, 0xab, 0x72, 0x91, 0xcb, 0xb3, 0x07, 0xce, 0xab, 0xfc, 0xe0, 0xb1, 0xdf,
+	0xd5, 0xcd, 0x95, 0x08, 0x09, 0x6d, 0x5b, 0x2b, 0x8b, 0x6d, 0xf5, 0xd6, 0x71, 0xef, 0x63, 0x77,
+	0xc0, 0x92, 0x1c, 0xb2, 0x3c, 0x27, 0x0a, 0x70, 0xe2, 0x59, 0x8e, 0x6f, 0xf8, 0x9d, 0x19, 0xf1,
+	0x05, 0xac, 0xc2, 0xd3, 0xf0, 0xcb, 0x35, 0xf2, 0x92, 0x80, 0xe1, 0x38, 0x6b, 0x6f, 0x64, 0xc4,
+	0xef, 0x22, 0xe1, 0xe1, 0xf2, 0x0d, 0x0c, 0xe8, 0xcf, 0xfb, 0x22, 0x49, 0xbd, 0x9a, 0x21, 0x37,
+};
+
+const uint8_t PublicExponent[3] = { 1, 0, 1 };
+
+const uint8_t PrivateExponent[128] = {
+	0x33, 0xa5, 0x04, 0x2a, 0x90, 0xb2, 0x7d, 0x4f, 0x54, 0x51, 0xca, 0x9b, 0xbb, 0xd0, 0xb4, 0x47,
+	0x71, 0xa1, 0x01, 0xaf, 0x88, 0x43, 0x40, 0xae, 0xf9, 0x88, 0x5f, 0x2a, 0x4b, 0xbe, 0x92, 0xe8,
+	0x94, 0xa7, 0x24, 0xac, 0x3c, 0x56, 0x8c, 0x8f, 0x97, 0x85, 0x3a, 0xd0, 0x7c, 0x02, 0x66, 0xc8,
+	0xc6, 0xa3, 0xca, 0x09, 0x29, 0xf1, 0xe8, 0xf1, 0x12, 0x31, 0x88, 0x44, 0x29, 0xfc, 0x4d, 0x9a,
+	0xe5, 0x5f, 0xee, 0x89, 0x6a, 0x10, 0xce, 0x70, 0x7c, 0x3e, 0xd7, 0xe7, 0x34, 0xe4, 0x47, 0x27,
+	0xa3, 0x95, 0x74, 0x50, 0x1a, 0x53, 0x26, 0x83, 0x10, 0x9c, 0x2a, 0xba, 0xca, 0xba, 0x28, 0x3c,
+	0x31, 0xb4, 0xbd, 0x2f, 0x53, 0xc3, 0xee, 0x37, 0xe3, 0x52, 0xce, 0xe3, 0x4f, 0x9e, 0x50, 0x3b,
+	0xd8, 0x0c, 0x06, 0x22, 0xad, 0x79, 0xc6, 0xdc, 0xee, 0x88, 0x35, 0x47, 0xc6, 0xa3, 0xb3, 0x25,
+};
+
+const char Message[] = "Test message";
+
+int main()
+{
+	MontgomeryReductionContext mrctx;
+
+	Binary signature;
+	Binary mod;
+	Binary pub;
+	Binary priv;
+
+	mod.alloc(128); memcpy(mod.data, Modulus, 128);
+	pub.alloc(3); memcpy(pub.data, PublicExponent, 3);
+	priv.alloc(128); memcpy(priv.data, PrivateExponent, 128);
+
+	GenerateRSASignature(&mrctx, signature, 128, mod, priv, PKCS1_SSA_SHA1, (const uint8_t *)Message, sizeof(Message));
+
+	PrintHex(signature.data, signature.length, 0);
+	int ver = VerifyRSASignature(&mrctx, signature, 128, mod, pub, PKCS1_SSA_SHA1, (const uint8_t *)Message, sizeof(Message));
+
+	printf("%s\n", (ver == 1) ? "VERIFIED" : "NOT VERIFIED");
+
+	return (ver == 1) ? 0 : -1;
 }
 
 #endif

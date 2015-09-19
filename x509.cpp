@@ -551,6 +551,39 @@ int Extract_PKCS1_RSA_PublicKeyComponents(PKCS1_RSA_PublicKey * out, int length,
 	return 1;
 }
 
+int Extract_PKCS1_RSA_PrivateKeyComponents(PKCS1_RSA_PrivateKey * out, int length, const uint8_t * source)
+{
+//  RSAPrivateKey ::= SEQUENCE {
+//     version Version,
+//     modulus INTEGER, -- n
+//     publicExponent INTEGER, -- e
+//     privateExponent INTEGER, -- d
+//     prime1 INTEGER, -- p
+//     prime2 INTEGER, -- q
+//     exponent1 INTEGER, -- d mod (p-1)
+//     exponent2 INTEGER, -- d mod (q-1)
+//     coefficient INTEGER -- (inverse of q) mod p }
+
+	ASNElement root(source, source + length);
+	ASNElement version = root.firstChild();
+	ASNElement modulus = version.next();
+	ASNElement pub_exponent = modulus.next();
+	ASNElement priv_exponent = pub_exponent.next();
+
+	if (version.getInt() != 0) return 0;
+
+	out->modulus.alloc(modulus.length());
+	modulus.extract(out->modulus.data);
+
+	out->pub_exp.alloc(pub_exponent.length());
+	pub_exponent.extract(out->pub_exp.data);
+
+	out->priv_exp.alloc(priv_exponent.length());
+	priv_exponent.extract(out->priv_exp.data);
+
+	return 1;
+}
+
 //### verify issuer certificate has valid date
 int VerifyCertificateChain(TinyTLSContext * ctx, const CertifacteBinary * certs, CertificateInfo * cert_storage, size_t count)
 {

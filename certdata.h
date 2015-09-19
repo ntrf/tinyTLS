@@ -54,6 +54,7 @@ struct CertificateInfo{
 //extract public key form X.509 certificate
 int ExtractCertificateInfo(CertificateInfo * out, int length, const uint8_t * source, const char * hostname = NULL);
 int Extract_PKCS1_RSA_PublicKeyComponents(PKCS1_RSA_PublicKey * out, int length, const uint8_t * source);
+int Extract_PKCS1_RSA_PrivateKeyComponents(PKCS1_RSA_PrivateKey * out, int length, const uint8_t * source);
 
 struct CertifacteBinary
 {
