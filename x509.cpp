@@ -610,6 +610,9 @@ int VerifyCertificateChain(TinyTLSContext * ctx, const CertifacteBinary * certs,
 	CertificateInfo trusted_cert;
 
 	for (;;) {
+		// limit chain length to stop loop
+		if (chain_len > TINYTLS_MAX_CERT_CHAIN_LENGTH) return 0;
+
 		// if selected certificate is not allowed to sign as long certificate chain as it 
 		// did - the whole chain is declared invalid
 		if (cert_storage[current].chainLength < chain_len) return 0;

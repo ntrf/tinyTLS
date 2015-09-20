@@ -31,6 +31,8 @@ limitations under the License.
 #include "pkcs1/bigint.h"
 #include "mlib/charstr.h"
 
+#define TINYTLS_MAX_CERT_CHAIN_LENGTH 100
+
 #pragma pack(push, 1)
 struct TlsHead
 {
