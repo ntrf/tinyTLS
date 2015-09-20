@@ -733,14 +733,6 @@ public:
 			return 0;
 		}
 
-		// server requesting client certificate
-		//### error - unsupported
-		if( handshake_completion & HANDSHAKE_CERT_REQUEST ) {
-			sendAlertPlain(2, AlertType::close_notify);
-			handshake_error = TTLS_ERR_UNSUPPORTED;
-			return 0;
-		}
-
 		return 1;
 	}
 

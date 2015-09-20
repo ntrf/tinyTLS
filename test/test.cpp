@@ -34,7 +34,8 @@ limitations under the License.
 
 #if 1
 
-#define TESTHOST "www.google.com"
+//#define TESTHOST "www.google.com"
+#define TESTHOST "localhost"
 
 //const char * hostname = "localhost";
 //const char * hostname = "www.example.com";
