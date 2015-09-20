@@ -135,8 +135,9 @@ const uint8_t CCSPacket[] = {
 #pragma pack(pop)
 
 // Build Client Hello message with SNI extension if it's provided
-static size_t BuildClientHello(TinyTLSContext * ctx, Binary & out, uint32_t * client_random, const char * sni)
+static size_t BuildClientHello(TinyTLSContext * ctx, Binary & out, uint32_t * client_random, const char * sni, const Binary * session)
 {
+	// ### check bounds for client hello
 	out.alloc(4096);
 
 	size_t s = 0;
@@ -162,10 +163,14 @@ static size_t BuildClientHello(TinyTLSContext * ctx, Binary & out, uint32_t * cl
 		ptr += sizeof(uint32_t) * 8;
 	}
 
-	//### session key
-	{
-		// no session key
+	// session id
+	if (!session) {
+		// no session id
 		*ptr++ = 0;
+	} else {
+		*ptr++ = (uint8_t)session->length;
+		memcpy(ptr, session->data, session->length);
+		ptr += session->length;
 	}
 
 	//cipher suits & compression methods
@@ -271,6 +276,8 @@ class TinyTLSContextImpl : public TinyTLSContext
 		uint8_t master_prf_seed[64];
 	};
 
+	Binary session_id;
+
 	CipherSuite active_cs;
 
 	enum{
@@ -282,6 +289,8 @@ class TinyTLSContextImpl : public TinyTLSContext
 		HANDSHAKE_SERVER_DONE    = 0x0020,
 		HANDSHAKE_CLIENT_FINISHED= 0x0030,
 		HANDSHAKE_SERVER_FINISHED= 0x0040,
+
+		HANDSHAKE_RESUMED        = 0x0100,
 
 		CONNECTION_CLOSED        = 0x1000,
 	};
@@ -307,6 +316,8 @@ class TinyTLSContextImpl : public TinyTLSContext
 	uint8_t * client_IV;
 	uint8_t * server_IV;
 
+	uint32_t key_ready = 0;
+
 public:
 
 	Binary workBuf;
@@ -323,6 +334,12 @@ public:
 	TinyTLSContextImpl()
 	{
 		link = NULL;
+
+		rng_ctx = 0;
+		certificate_strogate = 0;
+
+		// Not strictly necessary
+		memset(master_secret, 0, sizeof(master_secret));
 	}
 
 	~TinyTLSContextImpl()
@@ -331,6 +348,9 @@ public:
 
 	void close()
 	{
+		if (handshake_completion == 0)
+			return;
+
 		if ((handshake_completion & CONNECTION_CLOSED) != 0)
 			return;
 
@@ -360,8 +380,6 @@ public:
 		memset(client_random, 0, sizeof(Random));
 		memset(server_random, 0, sizeof(Random));
 
-		memset(master_secret, 0, sizeof(master_secret));
-
 		active_cs = TLS_NULL_WITH_NULL_NULL;
 
 		handshake_completion = 0;
@@ -377,16 +395,51 @@ public:
 		sendHead.version_major = version_major;
 		sendHead.version_minor = version_minor;
 
-		rng_ctx = 0;
-		certificate_strogate = 0;
+		key_ready = 0;
 
 		recvOffset = 0;
 		recvSize = 0;
 
-		ttlsInitSystemRandomGenerator(this);
+		if (!rng_ctx) {
+			ttlsInitSystemRandomGenerator(this);
+		}
 	}
 
 	int RecvServerPacket(TlsHead * head, Binary * buff);
+
+	void PrepareKeyBlock()
+	{
+		//### does not support rekeying
+		if (key_ready > 0)
+			return;
+
+		//TLS 1.1:
+		//TLS_RSA_WITH_AES_128_CBC_SHA
+		//  client_write_MAC_secret[SecurityParameters.hash_size]     20 b ??
+		//  server_write_MAC_secret[SecurityParameters.hash_size]     20 b ??
+		//  client_write_key[SecurityParameters.key_material_length]  16 b
+		//  server_write_key[SecurityParameters.key_material_length]  16 b
+		//  client_write_IV[SecurityParameters.IV_size]               16 b
+		//  server_write_IV[SecurityParameters.IV_size]               16 b
+
+		uint8_t key_seed[sizeof(master_prf_seed)];
+		memcpy(key_seed, server_random, sizeof(server_random));
+		memcpy(key_seed + sizeof(server_random), client_random, sizeof(client_random));
+
+		//generate key material
+		//key_block = PRF(SecurityParameters.master_secret, "key expansion", SecurityParameters.server_random + SecurityParameters.client_random);
+		key_block.alloc(20 * 2 + 16 * 2 + 16 * 2);
+		PrfGenerateBlock_v1_0(key_block.data, key_block.length, master_secret, 48, "key expansion", key_seed, sizeof(master_prf_seed));
+
+		client_MAC_secret = key_block.data + 0;
+		server_MAC_secret = key_block.data + 20;
+		client_key = key_block.data + 40;
+		server_key = key_block.data + 40 + 16;
+		client_IV = key_block.data + 40 + 32;
+		server_IV = key_block.data + 40 + 32 + 16;
+
+		key_ready = 1;
+	}
 
 	void processServerCCS()
 	{
@@ -398,6 +451,8 @@ public:
 			handshake_error = TTLS_ERR_TAMPERED;
 			return;
 		}
+
+		PrepareKeyBlock();
 
 		active_decryption.InitDec(server_key, server_IV, server_MAC_secret);
 		active_cs = selected_cs;
@@ -437,8 +492,32 @@ public:
 
 		data += 2 + sizeof(Random);
 
-		//### implement session id saving
-		data += data[0] + 1; //skip session id
+		// session id
+		uint8_t sid_len = *data++;
+
+		// check for overflow
+		if (sid_len > 64 || ((data - srcdata) + sid_len > len)) {
+			handshake_error = TTLS_ERR_BADMSG;
+			return;
+		}
+
+		// server supports session resumption
+		if (sid_len > 0) {
+			if (session_id.length == sid_len && memcmp(session_id.data, data, session_id.length) == 0) {
+				// session id matched - session will be resumed
+				handshake_completion |= HANDSHAKE_RESUMED;
+			} else {
+				// erase session id and master secret
+				session_id.alloc(sid_len);
+				memcpy(session_id.data, data, sid_len);
+			}
+		} else {
+			//### maybe we shouldn't
+			//### in case we hit wrong server
+			session_id.clear();
+		}
+
+		data += sid_len; //skip session id
 
 		// check minimum expected packet length 
 		if ((data - srcdata) + 3 > len) {
@@ -468,6 +547,13 @@ public:
 		// ### extensions ???
 		// - currently none worth checking
 		// - ### session tickets
+
+		if (!(handshake_completion & HANDSHAKE_RESUMED)) {
+			memset(master_secret, 0, sizeof(master_secret));
+		} else {
+			// skip all theese messages and jump straight to CCS and Finished
+			handshake_completion |= HANDSHAKE_SERVER_CERT | HANDSHAKE_SERVER_KEY | HANDSHAKE_SERVER_DONE;
+		}
 
 		handshake_completion |= HANDSHAKE_HELLO;
 	}
@@ -557,6 +643,8 @@ public:
 		}
 
 		{
+			// sometimes modulus values is larger by one or two bytes for no reason
+			// round down to multiple of 4
 			unsigned res_len = keyComp.modulus.length & ~0x3;
 
 			// this value won't survive long - we encrypt it
@@ -588,8 +676,8 @@ public:
 		const uint32_t required = (HANDSHAKE_HELLO | HANDSHAKE_SERVER_CERT | HANDSHAKE_SERVER_KEY | HANDSHAKE_SERVER_DONE);
 
 		// if we don't have all the required messages
-		if( (handshake_completion & required) != required )
-		{
+		// notice - resumed sessions are not allowed here
+		if ((handshake_completion & required) != required || (handshake_completion & HANDSHAKE_RESUMED) != 0) {
 			sendAlertPlain(2, AlertType::unexpected_message);
 			handshake_error = TTLS_ERR_TAMPERED;
 			return 0;
@@ -618,10 +706,18 @@ public:
 			return 0;
 		}
 
-		// destructive
-		//### change to non-destructive if session resumption is in effect
-		md5Finish(&handshake_messages_md5, (uint32_t*)&handshake_messages_verify[0]);
-		sha1Finish(&handshake_messages_sha1, (uint32_t*)&handshake_messages_verify[16]);
+		if (handshake_completion & HANDSHAKE_RESUMED) {
+			// non-destructive
+			MD5_State state_copy_md5; memcpy(&state_copy_md5, &handshake_messages_md5, sizeof(MD5_State));
+			SHA1_State state_copy_sha1; memcpy(&state_copy_sha1, &handshake_messages_sha1, sizeof(SHA1_State));
+
+			md5Finish(&state_copy_md5, (uint32_t*)&handshake_messages_verify[0]);
+			sha1Finish(&state_copy_sha1, (uint32_t*)&handshake_messages_verify[16]);
+		} else {
+			// destructive
+			md5Finish(&handshake_messages_md5, (uint32_t*)&handshake_messages_verify[0]);
+			sha1Finish(&handshake_messages_sha1, (uint32_t*)&handshake_messages_verify[16]);
+		}
 
 		uint8_t finishedBody[12];
 
@@ -666,6 +762,8 @@ public:
 			data += sizeof(uint32_t);
 
 			bool finished = false;
+
+			int res = 0;
 	
 			switch(head & 0xFF)
 			{
@@ -679,7 +777,9 @@ public:
 				processHSCertificate(len, data);
 				break;
 			case HandshakeType::finished: //server finished
-				processHSFinished(len, data);
+				res = processHSFinished(len, data);
+				// time to finish resumed handshake
+				finished = ((handshake_completion & HANDSHAKE_RESUMED) != 0) && (res > 0);
 				break;
 			}
 
@@ -713,7 +813,7 @@ public:
 		this->rng_ctx->GenerateRandomBytes(this, (uint8_t *)(client_random + 1), sizeof(client_random) - 4);
 
 		// NOTE: using truncated result!
-		size_t packsize = BuildClientHello(this, workBuf, client_random, (const char *)HostName);
+		size_t packsize = BuildClientHello(this, workBuf, client_random, (const char *)HostName, &session_id);
 
 		//save for finshed message
 		md5Update(&handshake_messages_md5, (const uint8_t*)workBuf.data + sizeof(TlsHead), packsize - sizeof(TlsHead));
@@ -728,64 +828,58 @@ public:
 
 	void FinishClientHandshake()
 	{
-		// send client handshake
-		//   Certificate*   -- unsupported
-		//   ClientKeyExchange 
-		//   CertificateVerify* -- unsupported
-		//   [ChangeCipherSpec]
-		//   Finished
-
 		TlsHead head;
 		head.type = 0x16;
 		head.version_major = 3;
 		head.version_minor = 1;
 
-		//client key exchange
-		{
-			unsigned int res_length = encrypted_pre_master_secret().length;
+		// decide if session resumption is in efffect
+		if (handshake_completion & HANDSHAKE_RESUMED) {
 
-			size_t packsize = BuildClientKeyExchange(this, workBuf, encrypted_pre_master_secret().data, encrypted_pre_master_secret().length);
+			// Hello must be received
+			if (!(handshake_completion & HANDSHAKE_HELLO)) {
+				sendAlertPlain(2, AlertType::unexpected_message);
+				handshake_error = TTLS_ERR_TAMPERED;
+				return;
+			}
 
-			//save for finshed message
-			md5Update(&handshake_messages_md5, (const uint8_t*)workBuf.data + 5, packsize - sizeof(TlsHead));
-			sha1Update(&handshake_messages_sha1, (const uint8_t*)workBuf.data + 5, packsize - sizeof(TlsHead));
+			// send abbreviated client handshake
+			//   [ChangeCipherSpec]
+			//   Finished
+		} else {
+			// send client handshake
+			//   Certificate*   -- unsupported
+			//   ClientKeyExchange 
+			//   CertificateVerify* -- unsupported
+			//   [ChangeCipherSpec]
+			//   Finished
 
-			// ### check errors
-			link->send(link->context, (const uint8_t *)workBuf.data, packsize);
+			//client key exchange
+			{
+				unsigned int res_length = encrypted_pre_master_secret().length;
 
-			// destroy the key
-			encrypted_pre_master_secret().clear();
+				size_t packsize = BuildClientKeyExchange(this, workBuf, encrypted_pre_master_secret().data, encrypted_pre_master_secret().length);
+
+				//save for finshed message
+				md5Update(&handshake_messages_md5, (const uint8_t*)workBuf.data + 5, packsize - sizeof(TlsHead));
+				sha1Update(&handshake_messages_sha1, (const uint8_t*)workBuf.data + 5, packsize - sizeof(TlsHead));
+
+				// ### check errors
+				link->send(link->context, (const uint8_t *)workBuf.data, packsize);
+
+				// destroy the key
+				encrypted_pre_master_secret().clear();
+			}
+
+
+
+			PrepareKeyBlock();
 		}
 
 		//change-cypher-spec
 		{
 			// ### check errors
 			link->send(link->context, (const uint8_t *)CCSPacket, sizeof(CCSPacket));
-
-			//TLS 1.1:
-			//TLS_RSA_WITH_AES_128_CBC_SHA
-			//  client_write_MAC_secret[SecurityParameters.hash_size]     20 b ??
-			//  server_write_MAC_secret[SecurityParameters.hash_size]     20 b ??
-			//  client_write_key[SecurityParameters.key_material_length]  16 b
-			//  server_write_key[SecurityParameters.key_material_length]  16 b
-			//  client_write_IV[SecurityParameters.IV_size]               16 b
-			//  server_write_IV[SecurityParameters.IV_size]               16 b
-
-			uint8_t key_seed[sizeof(master_prf_seed)];
-			memcpy(key_seed, server_random, sizeof(server_random));
-			memcpy(key_seed + sizeof(server_random), client_random, sizeof(client_random));
-
-			//generate key material
-			//key_block = PRF(SecurityParameters.master_secret, "key expansion", SecurityParameters.server_random + SecurityParameters.client_random);
-			key_block.alloc(20*2 + 16*2 + 16*2);
-			PrfGenerateBlock_v1_0(key_block.data, key_block.length, master_secret, 48, "key expansion", key_seed, sizeof(master_prf_seed));
-
-			client_MAC_secret = key_block.data + 0;
-			server_MAC_secret = key_block.data + 20;
-			client_key = key_block.data + 40;
-			server_key = key_block.data + 40 + 16;
-			client_IV = key_block.data + 40 + 32;
-			server_IV = key_block.data + 40 + 32 + 16;
 
 			active_encryption.InitEnc(client_key, client_IV, client_MAC_secret);
 		}

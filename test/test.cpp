@@ -23,9 +23,25 @@ limitations under the License.
 
 #include "MSocket.h"
 
+#ifndef WIN32
+# include <unistd.h>
+# define pause(X) sleep(X)
+#else
+# include <Windows.h>
+# define pause(X) Sleep((X) * 1000)
+#endif
+
+
 #if 1
 
 #define TESTHOST "www.google.com"
+
+//const char * hostname = "localhost";
+//const char * hostname = "www.example.com";
+//const char * hostname = "www.google.com";
+//const char * hostname = "github.com";
+//const char * hostname = "www.microsoft.com";
+const char * hostname = TESTHOST;
 
 const char * request =
 "GET /notfound.html HTTP/1.1\r\n"
@@ -97,6 +113,49 @@ static int FlushFunction(void * context)
 
 //-------------------------------------------------------------------
 
+int make_request(MSocket & ws, TinyTLSContext * ctx, TTlsLink * link)
+{
+	ttlsReset(ctx);
+
+	int res = ws.connect(hostname, 443);
+
+	printf("Connect returned %d\n", res);
+	if (res != 0) {
+		return -1;
+	}
+
+	ttlsSetLink(ctx, link);
+
+	do {
+		int result = ttlsHandshake(ctx);
+		if (result > 0) break;
+		if (result < 0) {
+			printf("Handshake failed with error %d\n", result);
+			return -1;
+		}
+	} while (true);
+
+	printf("\nREQUEST:\n==================\n%s", request);
+	ttlsSend(ctx, (const uint8_t*)request, strlen(request));
+
+	printf("\nRESPONSE:\n==================\n");
+
+	for (;;) {
+		uint8_t buf[60];
+		int res = ttlsRecv(ctx, buf, 60);
+
+		if (res <= 0) {
+			printf("\n\n::res = %d\n", res);
+			break;
+		}
+
+		fwrite(buf, 1, res, stdout);
+	}
+
+	ws.disconnect();
+	return 0;
+}
+
 int main()
 {
 	MSocket ws;
@@ -114,52 +173,14 @@ int main()
 
 	TinyTLSContext * ctx = ttlsCreateContext();
 
-	//const char * hostname = "localhost";
-	//const char * hostname = "www.example.com";
-	//const char * hostname = "www.google.com";
-	//const char * hostname = "github.com";
-	//const char * hostname = "www.microsoft.com";
-	const char * hostname = TESTHOST;
-
-	int res = ws.connect(hostname, 443);
-
 	ttlsSetHostname(ctx, hostname);
 	ttlsUseCertStorage(ctx, certdb);
 
-	printf("Connect returned %d\n", res);
-	if (res != 0) {
-		return -1;
-	}
-
-	ttlsSetLink(ctx, &link);
-
-	do {
-		int result = ttlsHandshake(ctx);
-		if (result > 0) break;
-		if (result < 0) {
-			printf("Handshake failed with error %d\n", result);
-			return -1;
-		}
-	} while (true);
-
-	printf("\nREQUEST:\n==================\n%s", request);
-	ttlsSend(ctx, (const uint8_t*)request, strlen(request));
-
-	printf("\nRESPONSE:\n==================\n");
-	
-	for (;;) {
-		uint8_t buf[60];
-		int res = ttlsRecv(ctx, buf, 60);
-
-		if (res <= 0) {
-			printf("\n\n::res = %d\n", res);
-			break;
-		}
-
-		fwrite(buf, 1, res, stdout);
-	}
-
-	ws.disconnect();
+	int res1 = make_request(ws, ctx, &link);
+	printf("Connection 1 result: %d\n", res1);
+	pause(2);
+	int res2 = make_request(ws, ctx, &link);
+	printf("Connection 2 result: %d\n", res2);
 
 	return 0;
 }
