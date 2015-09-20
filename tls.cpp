@@ -216,6 +216,41 @@ static size_t BuildClientHello(TinyTLSContext * ctx, Binary & out, uint32_t * cl
 	return (s + sizeof(TlsHead));
 }
 
+// Build Client Certificate message
+static size_t BuildClientCertificate(TinyTLSContext * ctx, Binary & out, const uint8_t * certificate_list, size_t size)
+{
+	out.alloc(20 + size);
+
+	size_t s = 0;
+
+	TlsHead * t = (TlsHead *)(out.data);
+
+	t->type = 0x16;
+	t->version_major = 3;
+	t->version_minor = 1;
+
+	uint8_t * ptr = out.data + sizeof(TlsHead);
+
+	uint32_t * hslen = (uint32_t *)ptr;
+
+	ptr += sizeof(uint32_t);
+
+	// full length of list
+	*ptr++ = 0;
+	*(uint16_t*)ptr = bswap16(size);
+	ptr += sizeof(uint16_t);
+
+	memcpy((uint32_t *)ptr, certificate_list, size);
+	ptr += size;
+
+	s = (ptr - (uint8_t *)hslen);
+	*hslen = bswap32(s - sizeof(uint32_t)) | HandshakeType::certificate;
+
+	t->length = bswap16(s);
+
+	return (s + sizeof(TlsHead));
+}
+
 // Build Client Key Exchange message
 // 
 // This one is for RSA encryption. Not sure if it's possible to use 
@@ -669,6 +704,21 @@ public:
 		}
 	}
 
+	void processHSCertRequest(int len, const uint8_t * data)
+	{
+		//check minimum expected packet length
+		if (len < 3) {
+			sendAlertPlain(2, AlertType::unexpected_message);
+			handshake_error = TTLS_ERR_BADMSG;
+			return;
+		}
+
+		// tls requires us to sendcertificate if required by server even if empty
+		handshake_completion |= HANDSHAKE_CERT_REQUEST;
+
+		//### verify certificate type matches supported certificates
+	}
+
 	int processHSDone()
 	{
 		handshake_completion |= HANDSHAKE_SERVER_DONE;
@@ -776,6 +826,9 @@ public:
 			case HandshakeType::certificate: //server certificate
 				processHSCertificate(len, data);
 				break;
+			case HandshakeType::certificate_request: //server certificate requiest
+				processHSCertRequest(len, data);
+				break;
 			case HandshakeType::finished: //server finished
 				res = processHSFinished(len, data);
 				// time to finish resumed handshake
@@ -854,6 +907,19 @@ public:
 			//   [ChangeCipherSpec]
 			//   Finished
 
+			//client certificate
+			if (handshake_completion & HANDSHAKE_CERT_REQUEST) {
+				//### no certificate for now
+				size_t packsize = BuildClientCertificate(this, workBuf, NULL, 0);
+
+				//save for finshed message
+				md5Update(&handshake_messages_md5, (const uint8_t*)workBuf.data + 5, packsize - sizeof(TlsHead));
+				sha1Update(&handshake_messages_sha1, (const uint8_t*)workBuf.data + 5, packsize - sizeof(TlsHead));
+
+				// ### check errors
+				link->send(link->context, (const uint8_t *)workBuf.data, packsize);
+			}
+
 			//client key exchange
 			{
 				unsigned int res_length = encrypted_pre_master_secret().length;
@@ -871,7 +937,9 @@ public:
 				encrypted_pre_master_secret().clear();
 			}
 
-
+			//### client certificate verify
+			if (handshake_completion & HANDSHAKE_CERT_REQUEST) {
+			}
 
 			PrepareKeyBlock();
 		}
