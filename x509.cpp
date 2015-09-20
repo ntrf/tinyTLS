@@ -591,6 +591,10 @@ int VerifyCertificateChain(TinyTLSContext * ctx, const CertifacteBinary * certs,
 	int32_t chain_len = -1;
 	uint32_t next;
 
+	// don't trust anything if we don't have certificate storage
+	if (!ctx->certificate_strogate)
+		return 0;
+
 	for (size_t i = 0; i < count; ++i) {
 		if (ExtractCertificateInfo(&cert_storage[i], certs[i].length, certs[i].data, ctx->HostName) < 0)
 			return -1;

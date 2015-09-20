@@ -76,6 +76,24 @@ namespace tinyTLS
 		*certificateLen = (uint32_t)datalen;
 		return 1;
 	}
+
+	struct CertificateStorage_Callback : public TinyTLSCertificateStorage
+	{
+		void * data;
+		TinyTLSCertificateCallback cb;
+
+		CertificateStorage_Callback() : data(NULL), cb(NULL) { }
+		~CertificateStorage_Callback() { }
+		int AskCertificate(const uint8_t * issuer, uint32_t issuerLen, const uint8_t ** certificate, uint32_t * certificateLen)
+		{ 
+			int res = 0;
+			if (cb)
+				res = cb(data, issuer, issuerLen, certificate, certificateLen);
+
+			return res;
+		}
+	};
+
 }
 
 extern "C"
@@ -88,6 +106,15 @@ extern "C"
 			delete cs;
 			return NULL;
 		}
+		return cs;
+	}
+
+	struct TinyTLSCertificateStorage * ttlsCreateCertStorageCb(void * data, TinyTLSCertificateCallback cb)
+	{
+		tinyTLS::CertificateStorage_Callback * cs = new tinyTLS::CertificateStorage_Callback();
+		cs->data = data;
+		cs->cb = cb;
+
 		return cs;
 	}
 

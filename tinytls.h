@@ -91,9 +91,13 @@ intptr_t ttlsSkip(TinyTls * context, size_t size);
 intptr_t ttlsFlush(TinyTls * context);
 
 struct TinyTLSCertificateStorage;
+typedef int(*TinyTLSCertificateCallback)(void * data, const uint8_t * issuer, uint32_t issuerLen, const uint8_t ** certificate, uint32_t * certificateLen);
 
 /// Create certificate storage and load contents from memory
 struct TinyTLSCertificateStorage * ttlsCreateCertStorage(const uint8_t * mem, size_t size);
+
+/// Create certificate storage based on user supplied callback
+struct TinyTLSCertificateStorage * ttlsCreateCertStorageCb(void * data, TinyTLSCertificateCallback);
 
 /// Destroy certificate storage
 void ttlsFreeCertStorage(struct TinyTLSCertificateStorage *);
