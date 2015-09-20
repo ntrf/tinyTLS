@@ -48,7 +48,7 @@ void EncryptRSA(TinyTLSContext * ctx, Binary & out, unsigned int size, const Bin
 	buf[0] = 0;
 	buf[1] = 2;
 
-	ctx->rgn_ctx->GenerateRandomBytes(ctx, buf + 2, seedsize);
+	ctx->rng_ctx->GenerateRandomBytes(ctx, buf + 2, seedsize);
 	for (unsigned int x = 0; x < seedsize; ++x) {
 		if (buf[2 + x] == 0) buf[2 + x] = 0xFF;
 	}

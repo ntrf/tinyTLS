@@ -113,11 +113,11 @@ int ttlsInitSystemRandomGenerator(TinyTLSContext * ctx)
 		return -1;
 	}
 	
-	if (ctx->rgn_ctx != NULL) {
-		ctx->rgn_ctx->Shutdown(ctx);
-		ctx->rgn_ctx = NULL;
+	if (ctx->rng_ctx != NULL) {
+		ctx->rng_ctx->Shutdown(ctx);
+		ctx->rng_ctx = NULL;
 	}
 
-	ctx->rgn_ctx = rng;
+	ctx->rng_ctx = rng;
 	return 0;
 }

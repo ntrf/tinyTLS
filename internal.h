@@ -64,7 +64,7 @@ struct TinyTLSCertificateStorage
 struct TinyTLSContext
 {
 	/// Random number generator context
-	TinyTLSRandomNumberGeneratorInterface * rgn_ctx;
+	TinyTLSRandomNumberGeneratorInterface * rng_ctx;
 
 	/// Montgomery reduction context
 	/// Used by RSA and DH

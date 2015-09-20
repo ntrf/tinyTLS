@@ -377,7 +377,7 @@ public:
 		sendHead.version_major = version_major;
 		sendHead.version_minor = version_minor;
 
-		rgn_ctx = 0;
+		rng_ctx = 0;
 		certificate_strogate = 0;
 
 		recvOffset = 0;
@@ -563,7 +563,7 @@ public:
 			uint8_t pre_master_secret[48];
 
 			// generate pre_master_secret
-			this->rgn_ctx->GenerateRandomBytes(this, pre_master_secret + 2, sizeof(pre_master_secret) - 2);
+			this->rng_ctx->GenerateRandomBytes(this, pre_master_secret + 2, sizeof(pre_master_secret) - 2);
 			pre_master_secret[0] = version_major;
 			pre_master_secret[1] = version_minor;
 
@@ -710,7 +710,7 @@ public:
 		sha1Init(&handshake_messages_sha1);
 
 		client_random[0] = (uint32_t)time(NULL);
-		this->rgn_ctx->GenerateRandomBytes(this, (uint8_t *)(client_random + 1), sizeof(client_random) - 4);
+		this->rng_ctx->GenerateRandomBytes(this, (uint8_t *)(client_random + 1), sizeof(client_random) - 4);
 
 		// NOTE: using truncated result!
 		size_t packsize = BuildClientHello(this, workBuf, client_random, (const char *)HostName);
