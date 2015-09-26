@@ -33,7 +33,7 @@ typedef struct TinyTLSContext TinyTls;
 /// Use this structure to supply your own implementation of socket
 /// to tinyTLS
 
-struct TTlsLink
+typedef struct
 {
 	void * context;
 	size_t read_limit;
@@ -42,7 +42,7 @@ struct TTlsLink
 	int (* send)(void * context, const uint8_t * buffer, size_t size);
 	int (* flush)(void * context);
 	int (*geterror)(void * context);
-};
+} TTlsLink;
 
 TinyTls * ttlsCreateContext();
 void ttlsFreeContext(TinyTls *);
@@ -123,6 +123,20 @@ enum TTlsError
 	/// connection error or malicios actions from third-party.
 	TTLS_ERR_BADMSG = -115004,
 };
+
+/// Client authentication structure
+typedef struct
+{
+	const uint8_t * certs;
+	size_t certs_size;
+	const uint8_t * key;
+	size_t key_size;
+} TTlsClientAuth;
+
+/// 
+typedef const TTlsClientAuth * (*ttlsClientAuthCallback)(const char * sni, void * reserved);
+
+void ttlsSetClientAuth(TinyTls * context, ttlsClientAuthCallback cb);
 
 #ifdef __cplusplus
 }

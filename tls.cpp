@@ -287,6 +287,42 @@ static size_t BuildClientKeyExchange(TinyTLSContext * ctx, Binary & out, uint8_t
 	return (s + sizeof(TlsHead));
 }
 
+// Build Client Key Exchange message
+// 
+// This one is for RSA encryption. Not sure if it's possible to use 
+// it in DH schemes
+static size_t BuildClientCertVerify(TinyTLSContext * ctx, Binary & out, uint8_t * verify, size_t size)
+{
+	out.alloc(20 + size);
+
+	size_t s = 0;
+
+	TlsHead * t = (TlsHead *)(out.data);
+
+	t->type = 0x16;
+	t->version_major = 3;
+	t->version_minor = 1;
+
+	uint8_t * ptr = out.data + sizeof(TlsHead);
+
+	uint32_t * hslen = (uint32_t *)ptr;
+
+	ptr += sizeof(uint32_t);
+
+	// write verification contents
+	*(uint16_t*)ptr = bswap16(size);
+	ptr += sizeof(uint16_t);
+	memcpy((uint32_t *)ptr, verify, size);
+	ptr += size;
+
+	s = (ptr - (uint8_t *)hslen);
+	*hslen = bswap32(s - sizeof(uint32_t)) | HandshakeType::certificate_verify;
+
+	t->length = bswap16(s);
+
+	return (s + sizeof(TlsHead));
+}
+
 extern void EncryptRSA(TinyTLSContext * ctx, Binary & out, unsigned int size, const Binary & Modulus, const Binary & Exponent, const uint8_t * data, unsigned length);
 extern void PrfGenerateBlock_v1_0(unsigned char * output, unsigned int outLen, const unsigned char * secret, unsigned sectretLen, const char * label, const unsigned char * seed, unsigned int seedLen);
 
@@ -295,8 +331,6 @@ extern void PrfGenerateBlock_v1_0(unsigned char * output, unsigned int outLen, c
 class TinyTLSContextImpl : public TinyTLSContext
 {
 	typedef uint32_t Random[8];
-
-	TTlsLink * link;
 
 	uint8_t version_major;
 	uint8_t version_minor;
@@ -368,10 +402,10 @@ public:
 
 	TinyTLSContextImpl()
 	{
-		link = NULL;
-
+		link = 0;
 		rng_ctx = 0;
 		certificate_strogate = 0;
+		clientAuthCb = 0;
 
 		// Not strictly necessary
 		memset(master_secret, 0, sizeof(master_secret));
@@ -651,6 +685,7 @@ public:
 			return;
 		}
 
+#ifndef TINYTLS_INSECURE
 		int trusted = VerifyCertificateChain(this, certs, certInfo, certCount);
 
 		if (trusted <= 0) {
@@ -658,6 +693,9 @@ public:
 			handshake_error = TTLS_ERR_INSECURE;
 			return;
 		}
+#else
+		ExtractCertificateInfo(&certInfo[0], certs[0].length, certs[0].data, this->HostName);
+#endif
 
 		PKCS1_RSA_PublicKey keyComp;
 		if (Extract_PKCS1_RSA_PublicKeyComponents(&keyComp, certInfo[0].publicKey.length, certInfo[0].publicKey.data) < 0) {
@@ -713,10 +751,29 @@ public:
 			return;
 		}
 
-		// tls requires us to sendcertificate if required by server even if empty
+		// verify certificate type matches supported certificates
+		size_t cert_types_len = data[0];
+		data += 1;
+		if (cert_types_len > (len - 1)) {
+			sendAlertPlain(2, AlertType::unexpected_message);
+			handshake_error = TTLS_ERR_BADMSG;
+			return;
+		}
+
+		// tls requires us to send certificate if required by server even if empty
 		handshake_completion |= HANDSHAKE_CERT_REQUEST;
 
-		//### verify certificate type matches supported certificates
+		// verify certificate type matches supported certificates
+		for (size_t i = 0; i < cert_types_len; ++i) {
+			// RSA signature certificate
+			if (data[i] == 1) {
+				return;
+			}
+		}
+
+		sendAlertPlain(2, AlertType::unsupported_certificate);
+		handshake_error = TTLS_ERR_UNSUPPORTED;
+		return;
 	}
 
 	int processHSDone()
@@ -899,10 +956,35 @@ public:
 			//   [ChangeCipherSpec]
 			//   Finished
 
+			// for client authorization
+			PKCS1_RSA_PrivateKey auth_priv_key;
+			bool has_auth = false;
+
 			//client certificate
 			if (handshake_completion & HANDSHAKE_CERT_REQUEST) {
-				//### no certificate for now
-				size_t packsize = BuildClientCertificate(this, workBuf, NULL, 0);
+				size_t packsize = 0;
+				const TTlsClientAuth * cliauth = NULL;
+
+				//### pass temp buffer to the function
+
+				if (!!clientAuthCb) {
+					cliauth = clientAuthCb((const char *)this->HostName, NULL);
+				}
+
+				if (!!cliauth) {
+					int res = Extract_PKCS1_RSA_PrivateKeyComponents(&auth_priv_key, (int)cliauth->key_size, cliauth->key);
+					if (!res) {
+						sendAlertPlain(2, AlertType::internal_error);
+						handshake_error = TTLS_ERR_UNSUPPORTED;
+						return;
+					}
+
+					has_auth = true;
+
+					packsize = BuildClientCertificate(this, workBuf, cliauth->certs, cliauth->certs_size);
+				} else {
+					packsize = BuildClientCertificate(this, workBuf, NULL, 0);
+				}
 
 				//save for finshed message
 				md5Update(&handshake_messages_md5, (const uint8_t*)workBuf.data + 5, packsize - sizeof(TlsHead));
@@ -912,7 +994,7 @@ public:
 				link->send(link->context, (const uint8_t *)workBuf.data, packsize);
 			}
 
-			//client key exchange
+			// client key exchange
 			{
 				unsigned int res_length = encrypted_pre_master_secret().length;
 
@@ -929,8 +1011,47 @@ public:
 				encrypted_pre_master_secret().clear();
 			}
 
-			//### client certificate verify
-			if (handshake_completion & HANDSHAKE_CERT_REQUEST) {
+			// client certificate verify
+			if ((handshake_completion & HANDSHAKE_CERT_REQUEST) && has_auth) {
+				if (auth_priv_key.modulus.length <= 0) {
+					sendAlertPlain(2, AlertType::internal_error);
+					handshake_error = TTLS_ERR_UNSUPPORTED;
+					return;
+				}
+
+				uint32_t handshake_messages_verify[4 + 5];
+
+				// save a copy of hash contexts
+				//### this is slow - need non-destructive Finish for hashes
+				MD5_State state_copy_md5; memcpy(&state_copy_md5, &handshake_messages_md5, sizeof(MD5_State));
+				SHA1_State state_copy_sha1; memcpy(&state_copy_sha1, &handshake_messages_sha1, sizeof(SHA1_State));
+
+				md5Finish(&state_copy_md5, (uint32_t*)&handshake_messages_verify[0]);
+				sha1Finish(&state_copy_sha1, (uint32_t*)&handshake_messages_verify[4]);
+
+				Binary signature;
+				unsigned res_len = auth_priv_key.modulus.length & ~0x3;
+
+				int res = GenerateRSASignatureHash(&this->mr_ctx, signature, res_len,
+												   auth_priv_key.modulus,
+												   auth_priv_key.priv_exp,
+												   PKCS1_SSA_TLSVERIFY, 
+												   handshake_messages_verify);
+
+				if (res <= 0) {
+					sendAlertPlain(2, AlertType::internal_error);
+					handshake_error = TTLS_ERR_UNSUPPORTED;
+					return;
+				}
+
+				size_t packsize = BuildClientCertVerify(this, workBuf, signature.data, signature.length);
+
+				//save for finshed message
+				md5Update(&handshake_messages_md5, (const uint8_t*)workBuf.data + 5, packsize - sizeof(TlsHead));
+				sha1Update(&handshake_messages_sha1, (const uint8_t*)workBuf.data + 5, packsize - sizeof(TlsHead));
+
+				// ### check errors
+				link->send(link->context, (const uint8_t *)workBuf.data, packsize);
 			}
 
 			PrepareKeyBlock();
@@ -1273,4 +1394,10 @@ intptr_t ttlsRecv(TinyTls * context, uint8_t * buffer, size_t size)
 void ttlsUseCertStorage(TinyTls * context, struct TinyTLSCertificateStorage * cs)
 {
 	context->certificate_strogate = cs;
+}
+
+void ttlsSetClientAuth(TinyTls * context, ttlsClientAuthCallback cb)
+{
+	TinyTLSContextImpl * state = (TinyTLSContextImpl *)context;
+	state->clientAuthCb = cb;
 }

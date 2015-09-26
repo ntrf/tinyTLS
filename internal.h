@@ -26,6 +26,9 @@ limitations under the License.
 
 #include "tinytls.h"
 
+//#define TINYTLS_DEBUG
+//#define TINYTLS_INSECURE
+
 #include <stdint.h>
 
 #include "pkcs1/bigint.h"
@@ -65,6 +68,9 @@ struct TinyTLSCertificateStorage
 
 struct TinyTLSContext
 {
+	/// Link pointer
+	TTlsLink * link;
+
 	/// Random number generator context
 	TinyTLSRandomNumberGeneratorInterface * rng_ctx;
 
@@ -74,6 +80,9 @@ struct TinyTLSContext
 
 	/// Certificate storage
 	TinyTLSCertificateStorage * certificate_strogate;
+
+	/// Client authentication callback
+	ttlsClientAuthCallback clientAuthCb;
 
 	/// Assigned host name
 	charstr HostName;

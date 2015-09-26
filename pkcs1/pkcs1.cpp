@@ -205,7 +205,9 @@ int VerifyRSASignatureHash(MontgomeryReductionContext * ctx, const Binary & sign
 {
 	unsigned N = 0;
 
-	if (sigtype == PKCS1_SSA_MD5) {
+	if (sigtype == PKCS1_SSA_TLSVERIFY) {
+		N = size - 16 - 20 - 1;
+	} else if (sigtype == PKCS1_SSA_MD5) {
 		N = size - sizeof(rsaMd5DigestInfo)-16 - 1;
 	} else if (sigtype == PKCS1_SSA_SHA1) {
 		N = size - sizeof(rsaSha1DigestInfo)-20 - 1;
@@ -259,7 +261,10 @@ int VerifyRSASignatureHash(MontgomeryReductionContext * ctx, const Binary & sign
 
 	++N;
 
-	if (sigtype == PKCS1_SSA_MD5) {
+	if (sigtype == PKCS1_SSA_TLSVERIFY) {
+		// special case for TLS CertificateVerify
+		valid = (memcmp(buf.data + N, hash, sizeof(uint32_t) * 9) == 0) ? 1 : 0;
+	} else if (sigtype == PKCS1_SSA_MD5) {
 		if (memcmp(buf.data + N, rsaMd5DigestInfo, sizeof(rsaMd5DigestInfo)) != 0) {
 			return 0;
 		}
@@ -315,7 +320,9 @@ int GenerateRSASignatureHash(struct MontgomeryReductionContext * ctx, Binary & s
 {
 	unsigned N = 0;
 
-	if (sigtype == PKCS1_SSA_MD5) {
+	if (sigtype == PKCS1_SSA_TLSVERIFY) {
+		N = size - 20 - 16 - 1;
+	} else if (sigtype == PKCS1_SSA_MD5) {
 		N = size - sizeof(rsaMd5DigestInfo)-16 - 1;
 	} else if (sigtype == PKCS1_SSA_SHA1) {
 		N = size - sizeof(rsaSha1DigestInfo)-20 - 1;
@@ -342,7 +349,10 @@ int GenerateRSASignatureHash(struct MontgomeryReductionContext * ctx, Binary & s
 	buf[N] = 0;
 	
 	++N;
-	if (sigtype == PKCS1_SSA_MD5) {
+	if (sigtype == PKCS1_SSA_TLSVERIFY) {
+		// special case for TLS CertificateVerify
+		memcpy(buf.data + N, hash, sizeof(uint32_t) * 9);
+	} else if (sigtype == PKCS1_SSA_MD5) {
 		memcpy(buf.data + N, rsaMd5DigestInfo, sizeof(rsaMd5DigestInfo));
 		N += sizeof(rsaMd5DigestInfo);
 		memcpy(buf.data + N, hash, sizeof(uint32_t) * 4);

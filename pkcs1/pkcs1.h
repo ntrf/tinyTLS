@@ -32,6 +32,11 @@ enum
 
 	PKCS1_RSAES,
 
+	// special value for TLS 1.0 client certificate verify
+	// payload is not prefixed with algorithm identifier
+	// and is exactly 36 bytes
+	PKCS1_SSA_TLSVERIFY,
+
 	PKCS1_SSA_MD5,
 
 	PKCS1_SSA_SHA1,
