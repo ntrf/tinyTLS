@@ -4,6 +4,7 @@ project(tinyTLS)
 
 option(TINYTLS_BUILD_EXAMPLE "Build example application with library" OFF)
 option(TINYTLS_SKIP_INSTALL "Don't include tinytls into install target" OFF)
+option(TINYTLS_INSTALL_CRYPTO "Install crypto functions with tinytls" OFF)
 
 include_directories(.)
 
@@ -57,4 +58,11 @@ if (NOT TINYTLS_SKIP_INSTALL)
         ARCHIVE DESTINATION lib/static)
 	install(FILES tinytls.h 
 		DESTINATION include)
+endif()
+
+if (TINYTLS_INSTALL_CRYPTO)
+	install(FILES mlib/binary.h DESTINATION include/tinytls/mlib)
+	install(FILES pkcs1/pkcs1.h DESTINATION include/tinytls/pkcs1)
+	install(FILES hash/hash.h  DESTINATION include/tinytls/hash)
+	install(FILES certdata.h DESTINATION include/tinytls)
 endif()
