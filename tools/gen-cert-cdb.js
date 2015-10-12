@@ -3,6 +3,8 @@ fs = require('fs'),
 http = require('http'), 
 util = require('util');
 
+var additional = process.argv.slice(2);
+
 var stream = require('stream');
 
 var splitting_re = /\r\n|\r|\n/;
@@ -132,7 +134,7 @@ function MergeObjects(input) {
 
 function skipSequenceTag(pos, buf)
 {
-	if (buf[pos] != 0x30) return null;
+	if (buf[pos] != 0x30) return {pos: 0};
 	++pos;
 	var len = buf[pos];
 	if (len < 0x80) {
@@ -142,6 +144,49 @@ function skipSequenceTag(pos, buf)
 		pos += len + 1;
 		return {pos: pos};
 	}
+}
+function skipTag(pos, buf)
+{
+	++pos;
+	var len = buf[pos];
+	if (len < 0x80) {
+		return {pos: (pos+1), len: len};
+	} else {
+		len -= 0x80;
+		pos += len + 1;
+		return {pos: pos};
+	}
+}
+function skipContent(pos, buf)
+{
+	++pos;
+	var len = buf[pos];
+	if (len < 0x80) {
+		pos += 1 + len;
+		return {pos: pos};
+	} else {
+		len -= 0x80;
+		pos += len + 1;
+		return {pos: pos};
+	}
+}
+
+
+function findIssuer(buf)
+{
+	var root = skipTag(0, buf);
+	var tbsCert = skipTag(root.pos, buf);
+	var serial;
+	if (buf[tbsCert.pos] == 0xA0) {
+		serial = skipContent(tbsCert.pos, buf);
+	} else {
+		serial = tbsCert;
+	}
+	
+	var algType = skipContent(serial.pos, buf);
+	var issuer = skipContent(algType.pos, buf);
+	
+	return skipTag(issuer.pos, buf);
 }
 
 function GenTrustList(input)
@@ -216,6 +261,23 @@ async.waterfall([
 	function(input, cb) {
 		var crtr = MergeObjects(input);
 		var db = GenTrustList(crtr);
+		
+		additional.forEach(function(ef) {
+			try {
+				console.log("adding file: " + ef);
+				var data = fs.readFileSync(ef);
+				var issuer_pos = findIssuer(data);
+				var issuer = data.slice(issuer_pos.pos, issuer_pos.pos + issuer_pos.len);
+				
+				db.push({
+					issuer: issuer,
+					cert: data
+				});
+			} catch (e) {
+				console.log("adding file failed: " + e);
+			}
+		});
+		
 		cb(null, db);
 	},
 	function(db, cb) {
