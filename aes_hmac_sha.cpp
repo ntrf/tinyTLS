@@ -27,6 +27,8 @@ limitations under the License.
 
 #include "aes_hmac_sha.h"
 
+using namespace TinyTLS;
+
 AES128_HMAC_SHA::AES128_HMAC_SHA()
 	: seq_num_low(0), seq_num_high(0)
 {

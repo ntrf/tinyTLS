@@ -38,11 +38,11 @@ struct CertificateInfo{
 	int keyType;
 	int signType;
 
-	Binary publicKey;
-	Binary signature;
+	TinyTLS::Binary publicKey;
+	TinyTLS::Binary signature;
 
-	Binary issuer;
-	Binary subject;
+	TinyTLS::Binary issuer;
+	TinyTLS::Binary subject;
 
 	uint32_t restricted;
 	int32_t chainLength;

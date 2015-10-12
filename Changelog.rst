@@ -10,6 +10,9 @@ NEW:
 
 FIXED:
  - Intermediate certificates with *subjectAlternativeName* extension no longer crashing the library.
+ 
+CHANGED:
+ - Class ``Binary`` moved into the ``TinyTLS`` namespace.
 
 
 v0.9 alpha

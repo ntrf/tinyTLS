@@ -35,6 +35,8 @@ limitations under the License.
 
 #include "../internal.h"
 
+using namespace TinyTLS;
+
 /* Encryption */
 
 void EncryptRSA(TinyTLSContext * ctx, Binary & out, unsigned int size, const Binary & Modulus, const Binary & Exponent, const uint8_t * data, unsigned length)

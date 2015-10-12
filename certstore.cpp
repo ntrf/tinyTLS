@@ -23,13 +23,13 @@ limitations under the License.
 
 #include "pkcs1/pkcs1.h"
 
-namespace tinyTLS
+namespace TinyTLS
 {
 
 	class CertificateStorage_CDB : public TinyTLSCertificateStorage
 	{
 		cdb db;
-		Binary contents;
+		TinyTLS::Binary contents;
 	public:
 		CertificateStorage_CDB();
 		~CertificateStorage_CDB();
@@ -101,7 +101,7 @@ extern "C"
 	/// Create certificate storage and load contents from memory
 	struct TinyTLSCertificateStorage * ttlsCreateCertStorage(const uint8_t * mem, size_t size)
 	{
-		tinyTLS::CertificateStorage_CDB * cs = new tinyTLS::CertificateStorage_CDB();
+		TinyTLS::CertificateStorage_CDB * cs = new TinyTLS::CertificateStorage_CDB();
 		if (cs->Load(mem, size) <= 0) {
 			delete cs;
 			return NULL;
@@ -111,7 +111,7 @@ extern "C"
 
 	struct TinyTLSCertificateStorage * ttlsCreateCertStorageCb(void * data, TinyTLSCertificateCallback cb)
 	{
-		tinyTLS::CertificateStorage_Callback * cs = new tinyTLS::CertificateStorage_Callback();
+		TinyTLS::CertificateStorage_Callback * cs = new TinyTLS::CertificateStorage_Callback();
 		cs->data = data;
 		cs->cb = cb;
 

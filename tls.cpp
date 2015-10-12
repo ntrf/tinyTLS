@@ -39,6 +39,8 @@ limitations under the License.
 
 #include "mlib/charstr.h"
 
+using namespace TinyTLS;
+
 typedef uint16_t CipherSuite;
 
 #define MAKE_UINT16(A, B) ((A) + ((B) << 8))
@@ -323,7 +325,6 @@ static size_t BuildClientCertVerify(TinyTLSContext * ctx, Binary & out, uint8_t 
 	return (s + sizeof(TlsHead));
 }
 
-extern void EncryptRSA(TinyTLSContext * ctx, Binary & out, unsigned int size, const Binary & Modulus, const Binary & Exponent, const uint8_t * data, unsigned length);
 extern void PrfGenerateBlock_v1_0(unsigned char * output, unsigned int outLen, const unsigned char * secret, unsigned sectretLen, const char * label, const unsigned char * seed, unsigned int seedLen);
 
 #include "aes_hmac_sha.h"
@@ -754,7 +755,7 @@ public:
 		// verify certificate type matches supported certificates
 		size_t cert_types_len = data[0];
 		data += 1;
-		if (cert_types_len > (len - 1)) {
+		if (cert_types_len > (size_t)(len - 1)) {
 			sendAlertPlain(2, AlertType::unexpected_message);
 			handshake_error = TTLS_ERR_BADMSG;
 			return;

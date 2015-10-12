@@ -21,83 +21,97 @@ limitations under the License.
 
 #include <string.h>
 
-class Binary {
-	typedef unsigned char Ty;
+namespace TinyTLS
+{
+	class Binary
+	{
+		typedef unsigned char Ty;
 
-public:
-	Ty * data;
-	unsigned length;
+	public:
+		Ty * data;
+		unsigned length;
 
-	Binary() { length = 0; data = NULL; }
+		Binary() { length = 0; data = NULL; }
 
-	Binary(const Binary & b) {
-		length = 0; data = NULL;
-		alloc(b.length);
-		memcpy(data, b.data, length);
-	}
-
-	Binary & operator =(const Binary & b) {
-		clear();
-		alloc(b.length);
-		length = b.length;
-		memcpy(data, b.data, length);
-
-		return *this;
-	}
-
-	~Binary() { 
-		if(data)
-			delete [] data;
-		data = NULL;
-		length = 0;
-	}
-
-	void alloc(unsigned expected) {
-		int a = (expected | (32 - 1)) + 1;
-
-		Ty * na = new Ty[a];
-		if(length && data)
+		Binary(const Binary & b)
 		{
-			delete [] data;
+			length = 0; data = NULL;
+			alloc(b.length);
+			memcpy(data, b.data, length);
 		}
-		data = na;
-		length = expected;
-	}
 
-	Ty & operator [](int index) {
-		return (data[index]);
+		Binary & operator =(const Binary & b)
+		{
+			clear();
+			alloc(b.length);
+			length = b.length;
+			memcpy(data, b.data, length);
 
-	}
-	const Ty & operator [](int index) const {
-		return (data[index]);
-	}
+			return *this;
+		}
 
-	bool has(int index) const {
-		return (index >= 0 && index < (int)length);
-	}
+		~Binary()
+		{
+			if (data)
+				delete[] data;
+			data = NULL;
+			length = 0;
+		}
 
-	int index(const Ty * ptr) const {
-		if(ptr < data || ptr >= (data+length))
-			return -1;
-		return (int)(ptr - data);
-	}
+		void alloc(unsigned expected)
+		{
+			int a = (expected | (32 - 1)) + 1;
 
-	void swap(Binary & b) {
-		Ty * t_data = data; data = b.data; b.data = t_data;
-		unsigned t_length = length; length = b.length; b.length = t_length;
-	}
+			Ty * na = new Ty[a];
+			if (length && data) {
+				delete[] data;
+			}
+			data = na;
+			length = expected;
+		}
 
-	void clear() {
-		length = 0;
-		if(data) delete [] data;
-		data = NULL;
-	}
+		Ty & operator [](int index)
+		{
+			return (data[index]);
 
-	Ty* begin() { return data; }
-	Ty* end() { return (data + length); }
+		}
+		const Ty & operator [](int index) const
+		{
+			return (data[index]);
+		}
 
-	const Ty* cbegin() const { return data; }
-	const Ty* cend() const { return (data + length); }
-};
+		bool has(int index) const
+		{
+			return (index >= 0 && index < (int)length);
+		}
+
+		int index(const Ty * ptr) const
+		{
+			if (ptr < data || ptr >= (data + length))
+				return -1;
+			return (int)(ptr - data);
+		}
+
+		void swap(Binary & b)
+		{
+			Ty * t_data = data; data = b.data; b.data = t_data;
+			unsigned t_length = length; length = b.length; b.length = t_length;
+		}
+
+		void clear()
+		{
+			length = 0;
+			if (data) delete[] data;
+			data = NULL;
+		}
+
+		Ty* begin() { return data; }
+		Ty* end() { return (data + length); }
+
+		const Ty* cbegin() const { return data; }
+		const Ty* cend() const { return (data + length); }
+	};
+
+} // namespace TinyTLS
 
 #endif

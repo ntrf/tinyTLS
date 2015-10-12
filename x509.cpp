@@ -30,6 +30,8 @@ limitations under the License.
 
 #include "pkcs1/pkcs1.h"
 
+using namespace TinyTLS;
+
 #ifdef TINYTLS_DEBUG
 extern void printASN1(int length, const uint8_t * source);
 extern void printASN1(const struct ASNElement & el);

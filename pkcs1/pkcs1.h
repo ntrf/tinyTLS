@@ -50,26 +50,26 @@ enum
 };
 
 struct PKCS1_RSA_PublicKey{
-	Binary exponent;
-	Binary modulus;
+	TinyTLS::Binary exponent;
+	TinyTLS::Binary modulus;
 };
 
 // Simplified private key. More efficient CRT-key can be extracted instead.
 struct PKCS1_RSA_PrivateKey
 {
-	Binary priv_exp;
-	Binary pub_exp;
-	Binary modulus;
+	TinyTLS::Binary priv_exp;
+	TinyTLS::Binary pub_exp;
+	TinyTLS::Binary modulus;
 };
 
-void EncryptRSA(struct TinyTLSContext * ctx, Binary & out, unsigned int size, const Binary & Modulus, const Binary & Exponent, const uint8_t * data, unsigned length);
+void EncryptRSA(struct TinyTLSContext * ctx, TinyTLS::Binary & out, unsigned int size, const TinyTLS::Binary & Modulus, const TinyTLS::Binary & Exponent, const uint8_t * data, unsigned length);
 
 int GetRSAAlgorithmType(const uint8_t * oid, uint32_t length);
 int ComputeRSASignatureHash(int sigtype, const uint8_t * data, unsigned length, uint32_t * hash);
-int VerifyRSASignatureHash(struct MontgomeryReductionContext * ctx, const Binary & signature, unsigned int size, const Binary & Modulus, const Binary & Exponent, int sigtype, const uint32_t * hash);
-int VerifyRSASignature(struct MontgomeryReductionContext * ctx, const Binary & signature, unsigned int size, const Binary & Modulus, const Binary & Exponent, int sigtype, const uint8_t * data, unsigned length);
+int VerifyRSASignatureHash(struct MontgomeryReductionContext * ctx, const TinyTLS::Binary & signature, unsigned int size, const TinyTLS::Binary & Modulus, const TinyTLS::Binary & Exponent, int sigtype, const uint32_t * hash);
+int VerifyRSASignature(struct MontgomeryReductionContext * ctx, const TinyTLS::Binary & signature, unsigned int size, const TinyTLS::Binary & Modulus, const TinyTLS::Binary & Exponent, int sigtype, const uint8_t * data, unsigned length);
 
-int GenerateRSASignatureHash(struct MontgomeryReductionContext * ctx, Binary & signature, unsigned int size, const Binary & Modulus, const Binary & Exponent, int sigtype, const uint32_t * hash);
-int GenerateRSASignature(struct MontgomeryReductionContext * ctx, Binary & signature, unsigned int size, const Binary & Modulus, const Binary & Exponent, int sigtype, const uint8_t * data, unsigned length);
+int GenerateRSASignatureHash(struct MontgomeryReductionContext * ctx, TinyTLS::Binary & signature, unsigned int size, const TinyTLS::Binary & Modulus, const TinyTLS::Binary & Exponent, int sigtype, const uint32_t * hash);
+int GenerateRSASignature(struct MontgomeryReductionContext * ctx, TinyTLS::Binary & signature, unsigned int size, const TinyTLS::Binary & Modulus, const TinyTLS::Binary & Exponent, int sigtype, const uint8_t * data, unsigned length);
 
 #endif

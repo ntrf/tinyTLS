@@ -38,10 +38,10 @@ struct AES128_HMAC_SHA
 	AES128_HMAC_SHA();
 
 	void InitEnc(uint8_t * aeskey, uint8_t * aesIV, uint8_t * hmackey);
-	int32_t WrapPacket(Binary & output, uint8_t * header, const uint8_t * data, unsigned length);
+	int32_t WrapPacket(TinyTLS::Binary & output, uint8_t * header, const uint8_t * data, unsigned length);
 
 	void InitDec(uint8_t * aeskey, uint8_t * aesIV, uint8_t * hmackey);
-	int32_t UnWrapPacket(Binary & output, const uint8_t * header, const uint8_t * data, unsigned length);
+	int32_t UnWrapPacket(TinyTLS::Binary & output, const uint8_t * header, const uint8_t * data, unsigned length);
 };
 
 
