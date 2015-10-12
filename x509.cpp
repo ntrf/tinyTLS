@@ -490,7 +490,7 @@ int ExtractCertificateInfo(CertificateInfo * out, int length, const uint8_t * so
 						}
 					}
 				}
-			} else if (type.compare(ExtSubjectAltNames, sizeof(ExtSubjectAltNames)) == 0) {
+			} else if (type.compare(ExtSubjectAltNames, sizeof(ExtSubjectAltNames)) == 0 && !!hostname) {
 				// SEQUENCE
 				//   [2]
 				//     IA5String
@@ -500,7 +500,7 @@ int ExtractCertificateInfo(CertificateInfo * out, int length, const uint8_t * so
 
 				ASNElement entry = list.firstChild();
 
-				size_t hnlen = strlen(hostname);
+				size_t hnlen = hostname ? strlen(hostname) : 0;
 				
 				for (; entry != end; entry = entry.next()) {
 					Tag t = entry.tag();
