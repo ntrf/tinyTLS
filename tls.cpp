@@ -385,7 +385,7 @@ class TinyTLSContextImpl : public TinyTLSContext
 	uint8_t * client_IV;
 	uint8_t * server_IV;
 
-	uint32_t key_ready = 0;
+	uint32_t key_ready;
 
 public:
 
