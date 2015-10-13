@@ -64,7 +64,7 @@ public:
 class SystemRandomNumberGenerator : public TinyTLSRandomNumberGeneratorInterface
 {
 public:
-	void Init(TinyTLSContext * ctx) { return 1; }
+	int Init(TinyTLSContext * ctx) { return 1; }
 
 	void Shutdown(TinyTLSContext * ctx) { delete this; }
 
