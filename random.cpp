@@ -22,6 +22,11 @@ limitations under the License.
 
 #include "internal.h"
 
+
+#if defined(__APPLE__) || defined(APPLE)
+	#include <TargetConditionals.h>
+#endif
+
 #if defined(WIN32)
 
 #pragma comment(lib, "advapi32.lib")
@@ -58,7 +63,8 @@ public:
 	}
 };
 
-#elif defined(__APPLE__) || defined(APPLE)
+#elif (defined(__APPLE__) || defined(APPLE)) && (TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR)
+
 #include <Security/Security.h>
 
 class SystemRandomNumberGenerator : public TinyTLSRandomNumberGeneratorInterface
