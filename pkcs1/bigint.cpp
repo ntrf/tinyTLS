@@ -220,8 +220,8 @@ void MontgomeryReductionContext::MontDecode_CIOS(uint32_t * r, const uint32_t * 
 #  define read64(X) (*(uint64_t*)&(X))
 #else
 #  define read64(X) \
-	((((uint64_t)*(uint32_t*)&(X)) << 32) + \
-	((uint64_t)*((uint32_t*)&(X) + 1)))
+	((((uint64_t)*((uint32_t*)&(X) + 1)) << 32ULL) + \
+	((uint64_t)*((uint32_t*)&(X) + 0)))
 #endif
 
 /// Simple remainder computation for big numbers
@@ -235,10 +235,14 @@ static void longmod(uint32_t * a, uint32_t m, uint32_t * v, uint32_t n, uint32_t
 
 	uint32_t d = v[n - 1];
 
-	for (j = m - n - 1; j >= 0;) {
-		uint64_t uX = read64(a[j + n - 1]);
+	uint64_t uX = read64(a[m - 2]);
 
-		if (uX < d) { --j; continue; }
+	for (j = m - n - 1; j >= 0;) {
+		if (uX < d) { 
+			--j; 
+			uX = read64(a[j + n - 1]);
+			continue; 
+		}
 
 		uint32_t qx;
 
@@ -290,6 +294,8 @@ static void longmod(uint32_t * a, uint32_t m, uint32_t * v, uint32_t n, uint32_t
 		C = (uint64_t)a[n + j] - hi64(M) + his64(C);
 		assert(hi64(C) == 0);
 		a[n + j] = lo64(C);
+		
+		uX = (C << 32ULL) + (uint64_t)a[n + j - 1];
 	}
 
 	// we might need no more than 

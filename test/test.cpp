@@ -35,13 +35,12 @@ limitations under the License.
 #if 1
 
 //#define TESTHOST "www.google.com"
-#define TESTHOST "localhost"
+//#define TESTHOST "localhost"
+//#define TESTHOST "github.com"
+//#define TESTHOST "www.microsoft.com"
+//#define TESTHOST "www.amazon.com"
+#define TESTHOST "www.example.com"
 
-//const char * hostname = "localhost";
-//const char * hostname = "www.example.com";
-//const char * hostname = "www.google.com";
-//const char * hostname = "github.com";
-//const char * hostname = "www.microsoft.com";
 const char * hostname = TESTHOST;
 
 const char * request =
