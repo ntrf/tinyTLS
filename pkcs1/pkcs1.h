@@ -72,8 +72,8 @@ void EncryptRSA(struct TinyTLSContext * ctx, TinyTLS::Binary & out, unsigned int
 
 int GetRSAAlgorithmType(const uint8_t * oid, uint32_t length);
 int ComputeRSASignatureHash(int sigtype, const uint8_t * data, unsigned length, uint32_t * hash);
-int VerifyRSASignatureHash(struct MontgomeryReductionContext * ctx, const TinyTLS::Binary & signature, unsigned int size, const PKCS1_RSA_PublicKey & Key, int sigtype, const uint32_t * hash);
-int VerifyRSASignature(struct MontgomeryReductionContext * ctx, const TinyTLS::Binary & signature, unsigned int size, const PKCS1_RSA_PublicKey & Key, int sigtype, const uint8_t * data, unsigned length);
+int VerifyRSASignatureHash(struct MontgomeryReductionContext * ctx, const BinarySlice & signature, unsigned int size, const PKCS1_RSA_PublicKey & Key, int sigtype, const uint32_t * hash);
+int VerifyRSASignature(struct MontgomeryReductionContext * ctx, const BinarySlice & signature, unsigned int size, const PKCS1_RSA_PublicKey & Key, int sigtype, const uint8_t * data, unsigned length);
 
 int GenerateRSASignatureHash(struct MontgomeryReductionContext * ctx, TinyTLS::Binary & signature, unsigned int size, const PKCS1_RSA_PrivateKey & Key, int sigtype, const uint32_t * hash);
 int GenerateRSASignature(struct MontgomeryReductionContext * ctx, TinyTLS::Binary & signature, unsigned int size, const PKCS1_RSA_PrivateKey & Key, int sigtype, const uint8_t * data, unsigned length);

@@ -203,7 +203,7 @@ int ComputeRSASignatureHash(int sigtype, const uint8_t * data, unsigned length, 
 	}
 }
 
-int VerifyRSASignatureHash(MontgomeryReductionContext * ctx, const Binary & signature, unsigned int size, const PKCS1_RSA_PublicKey & Key, int sigtype, const uint32_t * hash)
+int VerifyRSASignatureHash(MontgomeryReductionContext * ctx, const BinarySlice & signature, unsigned int size, const PKCS1_RSA_PublicKey & Key, int sigtype, const uint32_t * hash)
 {
 	unsigned N = 0;
 
@@ -306,7 +306,7 @@ int VerifyRSASignatureHash(MontgomeryReductionContext * ctx, const Binary & sign
 	return valid;
 }
 
-int VerifyRSASignature(MontgomeryReductionContext * ctx, const Binary & signature, unsigned int size, const PKCS1_RSA_PublicKey & Key, int sigtype, const uint8_t * data, unsigned length)
+int VerifyRSASignature(MontgomeryReductionContext * ctx, const BinarySlice & signature, unsigned int size, const PKCS1_RSA_PublicKey & Key, int sigtype, const uint8_t * data, unsigned length)
 {
 	uint32_t hash[16];
 	size_t hash_size = ComputeRSASignatureHash(sigtype, data, length, hash);

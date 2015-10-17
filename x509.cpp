@@ -686,9 +686,13 @@ int VerifyCertificateChain(TinyTLSContext * ctx, const CertifacteBinary * certs,
 			uint32_t PayloadLen = cert_storage[current].payloadLength;
 			const uint8_t * PayloadData = certs[current].data + cert_storage[current].payloadOffset;
 
+			BinarySlice sig;
+			sig.data = cert_storage[current].signature.data;
+			sig.length = cert_storage[current].signature.length;
+
 			// Needs context now!
 			int result = VerifyRSASignature(&ctx->mr_ctx,
-				cert_storage[current].signature,
+				sig,
 				cert_storage[current].signature.length & (~3U),
 				pubkey,
 				cert_storage[current].signType,
