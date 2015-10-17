@@ -210,7 +210,7 @@ struct ASNElement
 		memcpy(buf, s, t.length);
 	}
 
-	const uint8_t * access(uint32_t & len) const
+	const uint8_t * access(size_t & len) const
 	{
 		const uint8_t * s = ptr;
 		Tag t = parseTag(s, lim);
@@ -220,7 +220,7 @@ struct ASNElement
 		return s;
 	}
 
-	int compare(const uint8_t * data, uint32_t len) const
+	int compare(const uint8_t * data, size_t len) const
 	{
 		const uint8_t * s = ptr;
 		Tag t = parseTag(s, lim);
@@ -436,17 +436,11 @@ int ExtractCertificateInfo(CertificateInfo * out, int length, const uint8_t * so
 	ExtractAlgorithmId(out->keyType, pubKeyAlgo);
 	ExtractAlgorithmId(out->signType, signAlgo);
 
-	out->publicKey.alloc(pubKeyData.length());
-	pubKeyData.extract(out->publicKey.data);
+	out->publicKey.data = pubKeyData.access(out->publicKey.length);
+	out->signature.data = signature.access(out->signature.length);
 
-	out->signature.alloc(signature.length());
-	signature.extract(out->signature.data);
-
-	out->issuer.alloc(issuer.length());
-	issuer.extract(out->issuer.data);
-
-	out->subject.alloc(subject.length());
-	subject.extract(out->subject.data);
+	out->issuer.data = issuer.access(out->issuer.length);
+	out->subject.data = subject.access(out->subject.length);
 
 	out->payloadOffset = (uint32_t)(cert.ptr - source);
 	out->payloadLength = (uint32_t)(signAlgo.ptr - cert.ptr);
@@ -587,7 +581,7 @@ int Extract_PKCS1_RSA_PrivateKeyComponents(PKCS1_RSA_PrivateKey * out, int lengt
 }
 
 //### verify issuer certificate has valid date
-int VerifyCertificateChain(TinyTLSContext * ctx, const CertifacteBinary * certs, CertificateInfo * cert_storage, size_t count)
+int VerifyCertificateChain(TinyTLSContext * ctx, const BinarySlice * certs, CertificateInfo * cert_storage, size_t count)
 {
 	uint32_t current = 0;
 	int32_t chain_len = -1;
@@ -612,7 +606,7 @@ int VerifyCertificateChain(TinyTLSContext * ctx, const CertifacteBinary * certs,
 		return 1;
 
 	int trusted = 0;
-	Binary * issuer = 0;
+	BinarySlice * issuer = 0;
 
 	CertificateInfo * issuer_cert;
 	CertificateInfo trusted_cert;
@@ -686,13 +680,9 @@ int VerifyCertificateChain(TinyTLSContext * ctx, const CertifacteBinary * certs,
 			uint32_t PayloadLen = cert_storage[current].payloadLength;
 			const uint8_t * PayloadData = certs[current].data + cert_storage[current].payloadOffset;
 
-			BinarySlice sig;
-			sig.data = cert_storage[current].signature.data;
-			sig.length = cert_storage[current].signature.length;
-
 			// Needs context now!
 			int result = VerifyRSASignature(&ctx->mr_ctx,
-				sig,
+				cert_storage[current].signature,
 				cert_storage[current].signature.length & (~3U),
 				pubkey,
 				cert_storage[current].signType,

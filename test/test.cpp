@@ -35,11 +35,11 @@ limitations under the License.
 #if 1
 
 //#define TESTHOST "www.google.com"
-//#define TESTHOST "localhost"
+#define TESTHOST "localhost"
 //#define TESTHOST "github.com"
 //#define TESTHOST "www.microsoft.com"
 //#define TESTHOST "www.amazon.com"
-#define TESTHOST "www.example.com"
+//#define TESTHOST "www.example.com"
 
 const char * hostname = TESTHOST;
 
@@ -176,12 +176,14 @@ int main()
 	ttlsSetHostname(ctx, hostname);
 	ttlsUseCertStorage(ctx, certdb);
 
-	int res1 = make_request(ws, ctx, &link);
-	printf("Connection 1 result: %d\n", res1);
-	pause(2);
-	int res2 = make_request(ws, ctx, &link);
-	printf("Connection 2 result: %d\n", res2);
+	unsigned requests = 1000;
 
+	for (unsigned i = 0; i < requests; ++i) {
+		int res1 = make_request(ws, ctx, &link);
+		printf("Connection %u result: %d\n", (unsigned)i, res1);
+		pause(1);
+	}
+	
 	return 0;
 }
 

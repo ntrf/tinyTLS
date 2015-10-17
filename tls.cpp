@@ -651,7 +651,7 @@ public:
 		}
 
 		size_t certCount = 0;
-		CertifacteBinary certs[MAX_CERTS];
+		BinarySlice certs[MAX_CERTS];
 		CertificateInfo certInfo[MAX_CERTS];
 
 		while ((data != end) && (certCount < MAX_CERTS)) {

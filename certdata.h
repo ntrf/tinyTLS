@@ -38,11 +38,11 @@ struct CertificateInfo{
 	int keyType;
 	int signType;
 
-	TinyTLS::Binary publicKey;
-	TinyTLS::Binary signature;
+	BinarySlice publicKey;
+	BinarySlice signature;
 
-	TinyTLS::Binary issuer;
-	TinyTLS::Binary subject;
+	BinarySlice issuer;
+	BinarySlice subject;
 
 	uint32_t restricted;
 	int32_t chainLength;
@@ -56,12 +56,6 @@ int ExtractCertificateInfo(CertificateInfo * out, int length, const uint8_t * so
 int Extract_PKCS1_RSA_PublicKeyComponents(PKCS1_RSA_PublicKey * out, int length, const uint8_t * source);
 int Extract_PKCS1_RSA_PrivateKeyComponents(PKCS1_RSA_PrivateKey * out, int length, const uint8_t * source);
 
-struct CertifacteBinary
-{
-	size_t length;
-	const uint8_t * data;
-};
-
-int VerifyCertificateChain(TinyTLSContext * ctx, const CertifacteBinary * certs, CertificateInfo * cert_storage, size_t count);
+int VerifyCertificateChain(TinyTLSContext * ctx, const BinarySlice * certs, CertificateInfo * cert_storage, size_t count);
 
 #endif
