@@ -35,11 +35,13 @@ limitations under the License.
 
 #include "../internal.h"
 
+#include "pkcs1.h"
+
 using namespace TinyTLS;
 
 /* Encryption */
 
-void EncryptRSA(TinyTLSContext * ctx, Binary & out, unsigned int size, const Binary & Modulus, const Binary & Exponent, const uint8_t * data, unsigned length)
+void EncryptRSA(TinyTLSContext * ctx, Binary & out, unsigned int size, const PKCS1_RSA_PublicKey & Key, const uint8_t * data, unsigned length)
 {
 	out.alloc(size);
 
@@ -61,14 +63,14 @@ void EncryptRSA(TinyTLSContext * ctx, Binary & out, unsigned int size, const Bin
 	{
 		unsigned exponent = 0;
 
-		if (Exponent.length <= sizeof(unsigned)) { // BAD
+		if (Key.exponent.length <= sizeof(unsigned)) { // BAD
 			unsigned l = 0;
-			for (; l < Exponent.length; ++l) {
-				exponent = (exponent << 8) + Exponent.data[l];
+			for (; l < Key.exponent.length; ++l) {
+				exponent = (exponent << 8) + Key.exponent.data[l];
 			}
 		}
 
-		ctx->mr_ctx.Prepare(Modulus.data, Modulus.length, size / 4, true);
+		ctx->mr_ctx.Prepare(Key.modulus.data, Key.modulus.length, size / 4, true);
 		ctx->mr_ctx.ExpMod_Fnum((uint32_t *)out.data, (const uint32_t *)buf, exponent, true);
 	}
 }
@@ -129,8 +131,6 @@ static const uint8_t rsaSha512DigestInfo[83 - 64] = {
 	ASN_NULL,
 	ASN_OCTETSTRING(64)
 };
-
-#include "pkcs1.h"
 
 // Source: PKCS #1: RSA Cryptography Specifications
 // See: https://tools.ietf.org/html/rfc3447#page-51
@@ -203,7 +203,7 @@ int ComputeRSASignatureHash(int sigtype, const uint8_t * data, unsigned length, 
 	}
 }
 
-int VerifyRSASignatureHash(MontgomeryReductionContext * ctx, const Binary & signature, unsigned int size, const Binary & Modulus, const Binary & Exponent, int sigtype, const uint32_t * hash)
+int VerifyRSASignatureHash(MontgomeryReductionContext * ctx, const Binary & signature, unsigned int size, const PKCS1_RSA_PublicKey & Key, int sigtype, const uint32_t * hash)
 {
 	unsigned N = 0;
 
@@ -230,16 +230,16 @@ int VerifyRSASignatureHash(MontgomeryReductionContext * ctx, const Binary & sign
 	{
 		unsigned exponent = 0;
 
-		if (Exponent.length <= sizeof(unsigned)) { // BAD
+		if (Key.exponent.length <= sizeof(unsigned)) { // BAD
 			unsigned l = 0;
-			for (; l < Exponent.length; ++l) {
-				exponent = (exponent << 8) + Exponent.data[l];
+			for (; l < Key.exponent.length; ++l) {
+				exponent = (exponent << 8) + Key.exponent.data[l];
 			}
 		}
 
 		buf.alloc(size);
 
-		ctx->Prepare(Modulus.data, Modulus.length, size / 4, true);
+		ctx->Prepare(Key.modulus.data, Key.modulus.length, size / 4, true);
 		ctx->ExpMod_Fnum((uint32_t *)buf.data, (const uint32_t *)signature.data, exponent, true);
 	}
 
@@ -306,7 +306,7 @@ int VerifyRSASignatureHash(MontgomeryReductionContext * ctx, const Binary & sign
 	return valid;
 }
 
-int VerifyRSASignature(MontgomeryReductionContext * ctx, const Binary & signature, unsigned int size, const Binary & Modulus, const Binary & Exponent, int sigtype, const uint8_t * data, unsigned length)
+int VerifyRSASignature(MontgomeryReductionContext * ctx, const Binary & signature, unsigned int size, const PKCS1_RSA_PublicKey & Key, int sigtype, const uint8_t * data, unsigned length)
 {
 	uint32_t hash[16];
 	size_t hash_size = ComputeRSASignatureHash(sigtype, data, length, hash);
@@ -314,11 +314,11 @@ int VerifyRSASignature(MontgomeryReductionContext * ctx, const Binary & signatur
 		return -1;
 	}
 
-	return VerifyRSASignatureHash(ctx, signature, size, Modulus, Exponent, sigtype, hash);
+	return VerifyRSASignatureHash(ctx, signature, size, Key, sigtype, hash);
 }
 
 // Sign message with RSA-
-int GenerateRSASignatureHash(struct MontgomeryReductionContext * ctx, Binary & signature, unsigned int size, const Binary & Modulus, const Binary & Exponent, int sigtype, const uint32_t * hash)
+int GenerateRSASignatureHash(struct MontgomeryReductionContext * ctx, Binary & signature, unsigned int size, const PKCS1_RSA_PrivateKey & Key, int sigtype, const uint32_t * hash)
 {
 	unsigned N = 0;
 
@@ -379,15 +379,15 @@ int GenerateRSASignatureHash(struct MontgomeryReductionContext * ctx, Binary & s
 	}
 
 	// ### workaround this limitation
-	if ((Exponent.length & 3) != 0)
+	if ((Key.priv_exp.length & 3) != 0)
 		return -1;
 
-	ctx->Prepare(Modulus.data, Modulus.length, size / 4, true);
-	ctx->ExpMod((uint32_t *)signature.data, (const uint32_t *)buf.data, (const uint32_t*)Exponent.data, Exponent.length / 4, true);
+	ctx->Prepare(Key.modulus.data, Key.modulus.length, size / 4, true);
+	ctx->ExpMod((uint32_t *)signature.data, (const uint32_t *)buf.data, (const uint32_t*)Key.priv_exp.data, Key.priv_exp.length / 4, true);
 	return 1;
 }
 
-int GenerateRSASignature(struct MontgomeryReductionContext * ctx, Binary & signature, unsigned int size, const Binary & Modulus, const Binary & Exponent, int sigtype, const uint8_t * data, unsigned length)
+int GenerateRSASignature(struct MontgomeryReductionContext * ctx, Binary & signature, unsigned int size, const PKCS1_RSA_PrivateKey & Key, int sigtype, const uint8_t * data, unsigned length)
 {
 	uint32_t hash[16];
 	size_t hash_size = ComputeRSASignatureHash(sigtype, data, length, hash);
@@ -395,7 +395,7 @@ int GenerateRSASignature(struct MontgomeryReductionContext * ctx, Binary & signa
 		return -1;
 	}
 
-	return GenerateRSASignatureHash(ctx, signature, size, Modulus, Exponent, sigtype, hash);
+	return GenerateRSASignatureHash(ctx, signature, size, Key, sigtype, hash);
 }
 
 #if TEST_MODULE

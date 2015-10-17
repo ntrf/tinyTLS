@@ -731,8 +731,7 @@ public:
 
 			// encrypt pre_master_secret (prepare key exchange message)
 			EncryptRSA(this, encrypted_pre_master_secret(), res_len,
-					   keyComp.modulus,
-					   keyComp.exponent,
+					   keyComp,
 					   pre_master_secret,
 					   48);
 
@@ -1034,8 +1033,7 @@ public:
 				unsigned res_len = auth_priv_key.modulus.length & ~0x3;
 
 				int res = GenerateRSASignatureHash(&this->mr_ctx, signature, res_len,
-												   auth_priv_key.modulus,
-												   auth_priv_key.priv_exp,
+												   auth_priv_key,
 												   PKCS1_SSA_TLSVERIFY, 
 												   handshake_messages_verify);
 
