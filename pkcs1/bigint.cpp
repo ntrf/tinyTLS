@@ -162,11 +162,23 @@ void MontgomeryReductionContext::MontMul_CIOS(uint32_t * r, const uint32_t * a, 
 	}
 	C = (uint64_t)t[s] + his64(C);
 
+#if 1
+	// constant time
+	/*
+	high bits of C will be either 0 (if <t> >= <n>) or 0xffFFffFF (otherwise)
+	can use C as a mask for result
+	*/
+	m = his64(C);
+	assert(m == 0 || m == ~0);
+	for (i = 0; i < s; ++i) r[i] ^= (r[i] ^ t[i]) & m;
+#else
 	if (lo64(C) == 0) {
 		return;
 	}
 
 	for (i = 0; i < s; ++i) r[i] = t[i];
+#endif
+
 }
 
 void MontgomeryReductionContext::MontDecode_CIOS(uint32_t * r, const uint32_t * a)
@@ -209,11 +221,22 @@ void MontgomeryReductionContext::MontDecode_CIOS(uint32_t * r, const uint32_t * 
 	}
 	C = (uint64_t)t[s] + his64(C);
 
+#if 1
+	// constant time
+	/*
+		high bits of C will be either 0 (if <t> >= <n>) or 0xffFFffFF (otherwise)
+		can use C as a mask for result
+	*/
+	m = his64(C);
+	assert(m == 0 || m == ~0);
+	for (i = 0; i < s; ++i) r[i] ^= (r[i] ^ t[i]) & m;
+#else
 	if (lo64(C) == 0) {
 		return;
 	}
 
 	for (i = 0; i < s; ++i) r[i] = t[i];
+#endif
 }
 
 #if 1
