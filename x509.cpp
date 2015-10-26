@@ -259,7 +259,7 @@ void ExtractAlgorithmId(int & algo, ASNElement & el)
 	//   NULL --params
 
 	ASNElement oid = el.firstChild();
-	uint32_t length = 0;
+	size_t length = 0;
 	const uint8_t * data = oid.access(length);
 
 	algo = GetRSAAlgorithmType(data, length);
@@ -501,7 +501,7 @@ int ExtractCertificateInfo(CertificateInfo * out, int length, const uint8_t * so
 				for (; entry != end; entry = entry.next()) {
 					Tag t = entry.tag();
 					if (t.scope == 0x4 && t.tag == 2) { // EXPLICIT [2] - DnsName
-						uint32_t vlen = 0;
+						size_t vlen = 0;
 
 						const uint8_t * val = entry.access(vlen);
 						if (val[0] == '*' && val[1] == '.') {
