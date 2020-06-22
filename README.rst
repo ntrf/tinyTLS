@@ -2,6 +2,8 @@
 TinyTLS
 =========
 
+**DEPRECATED** Will be eventually replaced by `zeroTLS <https://github.com/ntrf/zerotls>`_.
+
 TLS 1.0 client implementation designed to be small and easy to integrate
 
 
